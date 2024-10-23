@@ -2,130 +2,151 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Gun to Ethereum Address Demo</title>
+    <title>🔫 Gun to 💎 Ethereum Address Demo</title>
     <!-- Include Gun -->
     <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
     <!-- Include SEA (part of Gun) -->
     <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
     <!-- Include Ethers.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
-    <!-- Include the Gun-Eth plugin -->
-    <script src="https://cdn.jsdelivr.net/npm/gun-eth/src/gun-eth.js""></script>
+    <!-- Include RxJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/rxjs/7.8.1/rxjs.umd.min.js"></script>
+    <!-- Include DOMPurify -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
+    <!-- Include the Gun-Eth bundle -->
+    <script src="../../dist/gun-eth.js"></script>
     <style>
         body {
-          font-family: Arial, sans-serif;
-          margin: 0;
-          padding: 20px;
-          background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: white;
+            color: black;
         }
         .container {
-          max-width: 400px;
-          background-color: white;
-          border: 1px solid #000;
-          padding: 10px;
+            max-width: 600px;
+            padding: 20px;
+            margin: 0 auto;
         }
-        h1,
-        h2 {
-          margin: 0 0 10px 0;
-          font-size: 16px;
+        h1, h2 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
         }
-        form {
-          margin-bottom: 15px;
+        form, div {
+            margin-bottom: 15px;
         }
-        input,
-        button {
-          display: inline-block;
-          margin: 2px 0;
-          padding: 2px;
-          font-size: 12px;
-        }
-        input {
-          width: 150px;
+        input, textarea, button {
+            display: block;
+            margin: 5px 0;
+            padding: 5px;
+            font-size: 14px;
+            width: 100%;
+            border: 1px solid black;
         }
         button {
-          width: 100px;
+            background-color: white;
+            color: black;
+            cursor: pointer;
         }
-        label {
-          display: inline-block;
-          width: 70px;
-          font-size: 12px;
+        button:hover {
+            background-color: #f0f0f0;
         }
-        #configStatus,
-        .result {
-          font-weight: bold;
-          margin-bottom: 10px;
+        #resultText {
+            font-weight: bold;
+            margin-bottom: 10px;
         }
-        .result {
-          color: blue;
-        }
-        .disclaimer {
-          background-color: #ffffd0;
-          border: 1px solid #e6e600;
-          padding: 10px;
-          margin-bottom: 15px;
-          font-size: 14px;
-        }
-      </style>
+    </style>
 </head>
 <body>
     <div class="container">
         <h1>🔫 Gun to 💎 Ethereum Address Demo</h1>
         
-        <form id="gunUserForm">
-            <h2>👤 User Login/Registration</h2>
-            <label for="gunAlias">👤 Alias:</label>
-            <br>
-            <input type="text" id="gunAlias" name="gunAlias" required>
-            <br>
-            <label for="gunPassword">🔑 Password:</label>
-            <br>
-            <input type="password" id="gunPassword" name="gunPassword" required>
-            <br>
-            <button type="submit">🚀 Create/Login</button>
-        </form>
+        <div id="authSection">
+            <h2>🔐 Authentication</h2>
+            <input type="text" id="gunAlias" placeholder="Username">
+            <input type="password" id="gunPassword" placeholder="Password">
+            <button onclick="login()">🔑 Login</button>
+            <button onclick="register()">📝 Register</button>
+            <button onclick="logout()">🚪 Logout</button>
+        </div>
 
         <div id="conversionSection" style="display:none;">
             <h2>🔄 Convert Gun User to Ethereum Address</h2>
-            <button id="convertBtn">🔄 Convert
+            <button id="convertBtn">🔄 Convert</button>
         </div>
 
         <div id="resultSection">
-            <h2>Result</h2>
+            <h2>📊 Result</h2>
             <p id="resultText"></p>
         </div>
     </div>
 
     <script>
-        let gun = Gun();
+        let gun, gunEth, authModule;
         let currentUser = null;
 
-        document.getElementById('gunUserForm').addEventListener('submit', function(event) {
-            event.preventDefault();
-            const alias = document.getElementById('gunAlias').value;
-            const password = document.getElementById('gunPassword').value;
+        document.addEventListener('DOMContentLoaded', async function() {
+            const Gun = window.Gun;
+            gun = Gun();
+            const GunEthModule = window.GunEth;
+            if (typeof GunEthModule !== 'function') {
+                console.error("GunEth is not a function");
+                return;
+            }
+            GunEthModule(Gun, Gun.SEA, window.ethers, window.rxjs, window.DOMPurify);
+            window.gunEth = gun.GunEth();
 
-            console.log('Attempting to create or login user:', alias);
+            const gunEthInstance = window.gunEth;
+            
+            console.log("Gun:", gun);
+            console.log("gunEth:", gunEthInstance);
 
-            gun.user().create(alias, password, function(ack) {
-                if (ack.err) {
-                    console.log('User creation failed, trying to login:', ack.err);
-                    gun.user().auth(alias, password, function(authAck) {
-                        if (authAck.err) {
-                            document.getElementById('resultText').innerText = 'Error logging in: ' + authAck.err;
-                        } else {
-                            currentUser = gun.user();
-                            document.getElementById('resultText').innerText = 'User logged in successfully.';
-                            document.getElementById('conversionSection').style.display = 'block';
-                        }
-                    });
-                } else {
-                    console.log('User created successfully:', ack);
-                    currentUser = gun.user();
-                    document.getElementById('resultText').innerText = 'User created and logged in successfully.';
-                    document.getElementById('conversionSection').style.display = 'block';
-                }
-            });
+            if (!gunEthInstance || typeof gunEthInstance.auth !== 'object') {
+                console.error("Auth module is not available in gunEth");
+                return;
+            }
+            authModule = gunEthInstance.auth;
+
+            if (!authModule || typeof authModule.loginUser !== 'function') {
+                console.error("Functions of auth module are not available");
+                return;
+            }
         });
+
+        async function login() {
+            const username = document.getElementById('gunAlias').value;
+            const password = document.getElementById('gunPassword').value;
+            try {
+                currentUser = await authModule.loginUser({username, password});
+                document.getElementById('resultText').innerText = '✅ Login successful';
+                console.log("currentUser:", currentUser);
+                document.getElementById('conversionSection').style.display = 'block';
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Login failed: ' + error.message;
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById('gunAlias').value;
+            const password = document.getElementById('gunPassword').value;
+            try {
+                await authModule.registerUser({username, password});
+                document.getElementById('resultText').innerText = '✅ Registration successful. Please login.';
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Registration failed: ' + error.message;
+            }
+        }
+
+        async function logout() {
+            try {
+                await authModule.logoutUser();
+                currentUser = null;
+                document.getElementById('resultText').innerText = '✅ Logout successful';
+                document.getElementById('conversionSection').style.display = 'none';
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Logout failed: ' + error.message;
+            }
+        }
 
         document.getElementById('convertBtn').addEventListener('click', function() {
             if (!currentUser) {
@@ -133,29 +154,30 @@
                 return;
             }
 
-            console.log('Current user:', currentUser);
-            console.log('User pair:', currentUser._.sea);
+            console.log("currentUser:", currentUser);
 
             try {
-                const pair = currentUser._.sea;
-                if (!pair || !pair.priv) {
+                const pair = gun.user()._.sea;
+                if (!pair || !pair.epriv) {
                     throw new Error('Unable to retrieve Gun user private key');
                 }
 
-                const ethAccount = gun.gunToEthAccount(pair.priv);
+                console.log("pair:", pair);
+
+                window.gunEth = gun.GunEth();
+
+                const gunEthInstance = window.gunEth;
+
+                const ethAccount = gunEthInstance.gunToEthAccount(pair.epriv);
                 
                 document.getElementById('resultText').innerHTML = `
-                    <strong>Gun User</strong> 
-                    <br>
-                    ${currentUser.is.alias}
-                    <br>
-                    <br>
-                    <strong>Ethereum Address:</strong>
-                    <br>
-                    ${ethAccount.publicKey}
+                    <strong>Gun User:</strong> ${gun.user().is.alias}
+                    <br><br>
+                    <strong>Ethereum Address:</strong> ${ethAccount.publicKey}
+                    <strong>Ethereum Private Key:</strong> ${ethAccount.account.privateKey}
                 `;
             } catch (error) {
-                document.getElementById('resultText').innerText = 'Error: ' + error.message;
+                document.getElementById('resultText').innerText = '❌ Error: ' + error.message;
                 console.error('Conversion error:', error);
             }
         });

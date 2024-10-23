@@ -20,22 +20,30 @@ export const createNotesModule = (gun, SEA) => {
    * @returns {Promise<string>} A promise that resolves to the note's hash.
    */
   const createNote = async (title, author, content, isPublic, verification = '') => {
+    if (!isPublic && !user.is) {
+      console.log("L'utente deve essere autenticato per creare note private");
+      throw new Error("L'utente deve essere autenticato per creare note private");
+    }
+
     const noteData = {
       title: DOMPurify.sanitize(title),
       author: DOMPurify.sanitize(author),
       content: DOMPurify.sanitize(content),
       verification: isPublic ? DOMPurify.sanitize(verification) : '',
       lastUpdated: new Date().toISOString(),
+      isPublic: isPublic
     };
 
     const noteString = JSON.stringify(noteData);
     const hash = await SEA.work(noteString, null, null, { name: "SHA-256" });
 
     if (isPublic) {
-      await gun.get("gun-eth").get("notes").get(hash).put(noteString);
+      await gun.get("gun-eth").get("public-notes").get(hash).put(noteString);
     } else {
-      const encryptedData = await SEA.encrypt(noteString, user._.sea);
-      await user.get("gun-eth").get("notes").get(hash).put(encryptedData);
+      if (!user.is) {
+        throw new Error("L'utente deve essere autenticato per creare note private");
+      }
+      await user.get("gun-eth").get("private-notes").get(hash).put(noteData);
     }
 
     return hash;
@@ -47,15 +55,19 @@ export const createNotesModule = (gun, SEA) => {
    * @returns {Promise<Object|null>} A promise that resolves to the note object or null if not found.
    */
   const getNote = async (hash) => {
-    const publicNote = await gun.get("gun-eth").get("notes").get(hash).then();
+    const publicNote = await gun.get("gun-eth").get("public-notes").get(hash).then();
     if (publicNote) {
-      return { ...JSON.parse(publicNote), isPublic: true };
+      return JSON.parse(publicNote);
     }
 
-    const privateNote = await user.get("gun-eth").get("notes").get(hash).then();
+    if (!user.is) {
+      throw new Error("L'utente deve essere autenticato per accedere alle note private");
+    }
+
+    const privateNote = await user.get("gun-eth").get("private-notes").get(hash).then();
     if (privateNote) {
       const decryptedData = await SEA.decrypt(privateNote, user._.sea);
-      return { ...JSON.parse(decryptedData), isPublic: false };
+      return JSON.parse(decryptedData);
     }
 
     return null;
@@ -78,15 +90,19 @@ export const createNotesModule = (gun, SEA) => {
       content: DOMPurify.sanitize(content),
       verification: isPublic ? DOMPurify.sanitize(verification) : '',
       lastUpdated: new Date().toISOString(),
+      isPublic: isPublic
     };
 
     const noteString = JSON.stringify(noteData);
 
     if (isPublic) {
-      await gun.get("gun-eth").get("notes").get(hash).put(noteString);
+      await gun.get("gun-eth").get("public-notes").get(hash).put(noteString);
     } else {
+      if (!user.is) {
+        throw new Error("L'utente deve essere autenticato per aggiornare note private");
+      }
       const encryptedData = await SEA.encrypt(noteString, user._.sea);
-      await user.get("gun-eth").get("notes").get(hash).put(encryptedData);
+      await user.get("gun-eth").get("private-notes").get(hash).put(encryptedData);
     }
   };
 
@@ -95,8 +111,12 @@ export const createNotesModule = (gun, SEA) => {
    * @param {string} hash - The hash of the note to delete.
    * @returns {Promise<void>}
    */
-  const deleteNote = async (hash) => {
-    await user.get("gun-eth").get("notes").get(hash).put(null);
+  const deleteNote = async (hash, isPublic) => {
+    if (isPublic) {
+      await gun.get("gun-eth").get("public-notes").get(hash).put(null);
+    } else {
+      await user.get("gun-eth").get("private-notes").get(hash).put(null);
+    }
   };
 
   /**
@@ -106,17 +126,51 @@ export const createNotesModule = (gun, SEA) => {
   const getUserNotes = () => {
     return new Promise((resolve) => {
       const notes = [];
-      user.get("gun-eth").get("notes").map().once(async (data, id) => {
-        if (data && id !== '_') {
-          try {
-            const decryptedData = await SEA.decrypt(data, user._.sea);
-            if (decryptedData) {
-              notes.push({ id, ...JSON.parse(decryptedData), isPublic: false });
+
+      const loadPublicNotes = () => {
+        return new Promise((resolvePublic) => {
+          gun.get("gun-eth").get("public-notes").map().once((data, id) => {
+            if (data && id !== '_') {
+              try {
+                notes.push({ id, ...JSON.parse(data), isPublic: true });
+              } catch (error) {
+                console.error("Errore durante il parsing della nota pubblica:", error);
+                notes.push({ id, error: "Errore durante il parsing della nota", isPublic: true });
+              }
             }
-          } catch (error) {
-            console.error("Error during decryption:", error);
+          });
+          setTimeout(resolvePublic, 500);
+        });
+      };
+
+      const loadPrivateNotes = () => {
+        return new Promise((resolvePrivate) => {
+          if (user.is) {
+            user.get("gun-eth").get("private-notes").map().once(async (data, id) => {
+              if (data && id !== '_') {
+                try {
+                  const decryptedData = await SEA.decrypt(data, user._.sea);
+                  console.log("decryptedData:", decryptedData);
+                  if (typeof decryptedData === 'string' ) {
+                    notes.push({ id, ...JSON.parse(decryptedData), isPublic: false });
+                  } else if (typeof decryptedData === 'object' && decryptedData !== null) {
+                    notes.push({ id, ...decryptedData, isPublic: false });
+                  } else {
+                    console.error("Dati decriptati non validi:", decryptedData);
+                    notes.push({ id, error: "Dati decriptati non validi", isPublic: false });
+                  }
+                } catch (error) {
+                  console.error("Errore durante la decrittazione della nota privata:", error);
+                  notes.push({ id, error: "Errore durante la decrittazione della nota", isPublic: false });
+                }
+              }
+            });
           }
-        }
+          setTimeout(resolvePrivate, 500);
+        });
+      };
+
+      Promise.all([loadPublicNotes(), loadPrivateNotes()]).then(() => {
         resolve(notes);
       });
     });
@@ -130,3 +184,4 @@ export const createNotesModule = (gun, SEA) => {
     getUserNotes,
   };
 };
+

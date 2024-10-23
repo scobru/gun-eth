@@ -99,5 +99,17 @@ module.exports = [
       ...commonConfig.externals,
       'svelte': 'Svelte'
     }
+  },
+  // Bundle
+  {
+    ...commonConfig,
+    output: {
+      filename: 'gun-eth.js',
+      path: path.resolve(__dirname, 'dist'),
+      library: {
+        name: 'GunEth',
+        type: 'var'
+      },
+    }
   }
 ];

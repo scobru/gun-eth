@@ -15,7 +15,7 @@ export const loginUser = (gun, credentials) => {
           resolve({
             errMessage: undefined,
             errCode: undefined,
-            pub,
+            pub : gun.user().is.pub,
             message: "Successfully authenticated user.",
           });
         }

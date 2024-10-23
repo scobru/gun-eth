@@ -1,4 +1,4 @@
 interface Window {
     ethereum?: any;
-    gun_eth?: any;
+    GunEth?: any;
   }

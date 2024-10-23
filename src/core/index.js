@@ -11,7 +11,7 @@ const { createMessagingModule, createGroupMessagingModule } = require('../module
 const { createNotesModule } = require('../modules/notes/notes');
 const { createPostsModule } = require('../modules/posts/posts');
 
-const gun_eth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
+const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
   console.log("Inizializzazione del plugin Gun-Eth");
 
   if (!checkEthers(ethers)) {
@@ -22,7 +22,7 @@ const gun_eth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
   Gun.chain.shine = shine(Gun, ethers, getSigner, getProvider);
   Gun.chain.str2ab = str2ab;
 
-  Gun.chain.gunEth = function() {
+  Gun.chain.GunEth = function() {
     console.log("gunEth called");
     const gun = this;
     console.log("gun in gunEth:", gun);
@@ -137,11 +137,31 @@ const gun_eth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
         try {
           const pair = await SEA.pair();
           const encryptedPair = await SEA.encrypt(JSON.stringify(pair), password);
-          const ensName = await getEnsName(address);
-          const username = ensName ? ensName : address;
 
-          await gun.get("gun-eth").get("users").get(username).put({encryptedPair});
-          await gun.get(`~${username}`).get("safe").get("enc").put({encryptedPair});
+          // TODO: Add spending and viewing pairs implementation
+          // const encryptedSpendingPair = await SEA.encrypt(JSON.stringify(pair), password + "_spending");
+          // const encryptedViewingPair = await SEA.encrypt(JSON.stringify(pair), password + "_viewing");
+
+          let ethAccount;
+
+          try {
+            const ensName = await getEnsName(address);
+            ethAccount = ensName ? ensName : address;
+          } catch (error) {
+            console.error("Error getting ENS name:", error);
+            ethAccount = address;
+          }
+
+          const data = {
+            pub: encryptedPair.pub,
+            address: address,
+            ensName: ethAccount,
+          }
+
+          await gun.get("gun-eth").get("users").get(address).put({encryptedPair});
+          await gun.get("gun-eth").get("usersData").get(encryptedPair.pub).put({data});
+
+          await gun.get(`~${encryptedPair.pub}`).get("safe").get("enc").put({encryptedPair});
 
           console.log("Encrypted pair stored for:", address);
         } catch (error) {
@@ -168,8 +188,8 @@ const gun_eth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
         const base64UrlToHex = (base64url) => {
           const padding = "=".repeat((4 - (base64url.length % 4)) % 4);
           const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/") + padding;
-          const binary = Buffer.from(base64, 'base64').toString('binary');
-          return Array.from(binary, (char) =>
+          const binaryString = atob(base64);
+          return Array.from(binaryString, (char) =>
             char.charCodeAt(0).toString(16).padStart(2, "0")
           ).join("");
         };
@@ -190,8 +210,8 @@ const gun_eth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
   return Gun;
 };
 
-module.exports = gun_eth;
+module.exports = GunEth;
 
 if (typeof window !== 'undefined' && window.gun_eth === "undefined") {
-    window.gun_eth = gun_eth;
+    window.GunEth = GunEth;
 }

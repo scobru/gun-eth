@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🔫 Gun-Eth Messaging Demo</title>
+    <!-- Include Gun -->
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <!-- Include SEA (part of Gun) -->
+    <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
+    <!-- Include Ethers.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <!-- Include RxJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/rxjs/7.8.1/rxjs.umd.min.js"></script>
+    <!-- Include DOMPurify -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
+    <!-- Include the Gun-Eth bundle -->
+    <script src="../../dist/gun-eth.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: white;
+            color: black;
+        }
+        .container {
+            max-width: 800px;
+            padding: 20px;
+            margin: 0 auto;
+        }
+        h1, h2 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+        }
+        form, div {
+            margin-bottom: 15px;
+        }
+        input, textarea, button, select {
+            display: block;
+            margin: 5px 0;
+            padding: 5px;
+            font-size: 14px;
+            width: 100%;
+            border: 1px solid black;
+        }
+        button {
+            background-color: white;
+            color: black;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #f0f0f0;
+        }
+        #resultText, #messagesList, #friendsList {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔫 Gun-Eth Messaging Demo</h1>
+        
+        <div id="authSection">
+            <h2>🔐 Authentication</h2>
+            <input type="text" id="username" placeholder="Username">
+            <input type="password" id="password" placeholder="Password">
+            <button onclick="login()">🔑 Login</button>
+            <button onclick="register()">📝 Register</button>
+            <button onclick="logout()">🚪 Logout</button>
+        </div>
+
+        <div id="friendsSection">
+            <h2>👥 Friends</h2>
+            <input type="text" id="friendUsername" placeholder="Friend's username">
+            <button onclick="addFriend()">➕ Add Friend</button>
+            <div id="friendsList"></div>
+        </div>
+
+        <div id="messagingSection">
+            <h2>💬 Messaging</h2>
+            <select id="recipientSelect"></select>
+            <textarea id="messageContent" placeholder="Type your message here"></textarea>
+            <button onclick="sendMessage()">📤 Send Message</button>
+            <div id="messagesList"></div>
+        </div>
+
+        <div id="resultSection">
+            <h2>📊 Result</h2>
+            <p id="resultText"></p>
+        </div>
+    </div>
+
+    <script>
+        let gun, gunEth, authModule, friendsModule, messagingModule, certificatesModule;
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            const Gun = window.Gun;
+            gun = Gun();
+            const GunEthModule = window.GunEth;
+            if (typeof GunEthModule !== 'function') {
+                console.error("GunEth is not a function");
+                return;
+            }
+            GunEthModule(Gun, Gun.SEA, window.ethers, window.rxjs, window.DOMPurify);
+            window.gunEth = gun.GunEth();
+
+            const gunEthInstance = window.gunEth;
+            
+            console.log("Gun:", gun);
+            console.log("gunEth:", gunEthInstance);
+
+            if (!gunEthInstance || typeof gunEthInstance.auth !== 'object' || 
+                typeof gunEthInstance.friends !== 'object' || 
+                typeof gunEthInstance.messaging !== 'object' ||
+                typeof gunEthInstance.certificates !== 'object') {
+                console.error("Required modules are not available in gunEth");
+                return;
+            }
+            authModule = gunEthInstance.auth;
+            friendsModule = gunEthInstance.friends;
+            messagingModule = gunEthInstance.messaging;
+            certificatesModule = gunEthInstance.certificates;
+
+            updateUI();
+        });
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            try {
+                currentUser = await authModule.loginUser({username, password});
+                document.getElementById('resultText').innerText = '✅ Login successful';
+                updateUI();
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Login failed: ' + error.message;
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            try {
+                await authModule.registerUser({username, password});
+                document.getElementById('resultText').innerText = '✅ Registration successful. Please login.';
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Registration failed: ' + error.message;
+            }
+        }
+
+        async function logout() {
+            try {
+                await authModule.logoutUser();
+                currentUser = null;
+                document.getElementById('resultText').innerText = '✅ Logout successful';
+                updateUI();
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Logout failed: ' + error.message;
+            }
+        }
+
+        async function addFriend() {
+            if (!currentUser) {
+                alert('Per favore, effettua il login prima');
+                return;
+            }
+            const friendUsername = document.getElementById('friendUsername').value;
+            try {
+                if (typeof friendsModule.addFriendRequest !== 'function') {
+                    throw new Error('La funzione addFriendRequest non è disponibile');
+                }
+                const certificate = await certificatesModule.generateAddFriendCertificate(friendUsername);
+                console.log("Certificate:", certificate);
+
+                // search pub from username
+                const friend = await gun.user(friendUsername);
+                const friendPub = friend.is.pub;
+
+                const result = await friendsModule.addFriendRequest(friendPub, certificate);
+                console.log("Result:", result);
+                if (result.success) {
+                    document.getElementById('resultText').innerText = '✅ Richiesta di amicizia inviata con successo. In attesa di accettazione.';
+                } else {
+                    document.getElementById('resultText').innerText = '❌ Impossibile inviare la richiesta di amicizia: ' + result.errMessage;
+                }
+                updateUI();
+            } catch (error) {
+                console.error('Errore in addFriend:', error);
+                document.getElementById('resultText').innerText = '❌ Impossibile inviare la richiesta di amicizia: ' + error.message;
+            }
+        }
+
+        async function sendMessage() {
+            if (!currentUser) {
+                alert('Please login first');
+                return;
+            }
+            const recipient = document.getElementById('recipientSelect').value;
+            const content = document.getElementById('messageContent').value;
+            try {
+                await messagingModule.sendMessage(recipient, content);
+                document.getElementById('resultText').innerText = '✅ Message sent successfully';
+                document.getElementById('messageContent').value = '';
+                updateUI();
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Failed to send message: ' + error.message;
+            }
+        }
+
+        async function updateUI() {
+            const friendsListElement = document.getElementById('friendsList');
+            const recipientSelectElement = document.getElementById('recipientSelect');
+            const messagesListElement = document.getElementById('messagesList');
+
+            if (currentUser) {
+                // Aggiorna la lista degli amici
+                friendsListElement.innerHTML = '<h3>Friends:</h3>';
+                recipientSelectElement.innerHTML = '<option value="">Select a recipient</option>';
+                
+                const friendsSubscription = friendsModule.friendsList.subscribe({
+                    next: (friend) => {
+                        if (friend) {
+                            const friendName = friend.displayName || friend.alias;
+                            friendsListElement.innerHTML += `<p>${friendName}</p>`;
+                            recipientSelectElement.innerHTML += `<option value="${friend.pub}">${friendName}</option>`;
+                        }
+                    },
+                    error: (err) => console.error('Error in friends list:', err),
+                    complete: () => console.log('Friends list subscription completed')
+                });
+
+                // Annulla l'iscrizione dopo un breve ritardo per assicurarsi che tutti gli amici siano caricati
+                setTimeout(() => friendsSubscription.unsubscribe(), 1000);
+
+                // Aggiorna la lista dei messaggi
+                messagesListElement.innerHTML = '<h3>Messages:</h3>';
+                if (typeof messagingModule.messageList === 'function') {
+                    try {
+                        const messageSubscription = messagingModule.messageList('defaultRoom', currentUser.pub).subscribe({
+                            next: ({ initial, individual }) => {
+                                if (initial) {
+                                    initial.forEach(msg => {
+                                        messagesListElement.innerHTML += `
+                                            <p><strong>From:</strong> ${msg.sender}</p>
+                                            <p><strong>To:</strong> ${msg.recipient}</p>
+                                            <p>${msg.content}</p>
+                                            <hr>
+                                        `;
+                                    });
+                                } else if (individual) {
+                                    messagesListElement.innerHTML += `
+                                        <p><strong>From:</strong> ${individual.sender}</p>
+                                        <p><strong>To:</strong> ${individual.recipient}</p>
+                                        <p>${individual.content}</p>
+                                        <hr>
+                                    `;
+                                }
+                            },
+                            error: (err) => {
+                                console.error('Error in message list:', err);
+                                messagesListElement.innerHTML += '<p>Error loading messages. Please try again later.</p>';
+                            },
+                            complete: () => console.log('Message list subscription completed')
+                        });
+
+                        // Memorizza l'iscrizione in modo da poterla annullare in seguito se necessario
+                        window.messageSubscription = messageSubscription;
+                    } catch (error) {
+                        console.error('Error subscribing to message list:', error);
+                        messagesListElement.innerHTML += '<p>Error loading messages. Please try again later.</p>';
+                    }
+                } else {
+                    console.error('messageList function is not available in messagingModule');
+                    messagesListElement.innerHTML += '<p>Unable to load messages at this time.</p>';
+                }
+            } else {
+                friendsListElement.innerHTML = '';
+                recipientSelectElement.innerHTML = '';
+                messagesListElement.innerHTML = '';
+                if (window.messageSubscription) {
+                    window.messageSubscription.unsubscribe();
+                }
+            }
+        }
+
+        // Aggiorna la lista delle richieste di amicizia
+        const friendRequestsElement = document.getElementById('friendRequests');
+        friendRequestsElement.innerHTML = '<h3>Friend Requests:</h3>';
+
+        const friendRequestsSubscription = friendsModule.friendRequests.subscribe({
+            next: (request) => {
+                if (request) {
+                    friendRequestsElement.innerHTML += `
+                        <p>${request.username}</p>
+                        <button onclick="acceptFriendRequest('${request.key}', '${request.publicKey}')">Accept</button>
+                        <button onclick="rejectFriendRequest('${request.key}')">Reject</button>
+                    `;
+                }
+            },
+            error: (err) => console.error('Error in friend requests:', err),
+            complete: () => console.log('Friend requests subscription completed')
+        });
+
+        // Annulla l'iscrizione dopo un breve ritardo
+        setTimeout(() => friendRequestsSubscription.unsubscribe(), 1000);
+
+        async function acceptFriendRequest(key, publicKey) {
+            try {
+                await friendsModule.acceptFriendRequest({ key, publicKey });
+                document.getElementById('resultText').innerText = '✅ Richiesta di amicizia accettata';
+                updateUI();
+            } catch (error) {
+                console.error('Errore nell\'accettare la richiesta di amicizia:', error);
+                document.getElementById('resultText').innerText = '❌ Impossibile accettare la richiesta di amicizia: ' + error.message;
+            }
+        }
+
+        async function rejectFriendRequest(key) {
+            try {
+                await friendsModule.rejectFriendRequest(key);
+                document.getElementById('resultText').innerText = '✅ Richiesta di amicizia rifiutata';
+                updateUI();
+            } catch (error) {
+                console.error('Errore nel rifiutare la richiesta di amicizia:', error);
+                document.getElementById('resultText').innerText = '❌ Impossibile rifiutare la richiesta di amicizia: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

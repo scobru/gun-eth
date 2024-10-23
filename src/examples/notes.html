@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>💎 Gun-Eth Notes Module Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/rxjs/7.8.1/rxjs.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
+    <script src="../../dist/gun-eth.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: white;
+            color: black;
+        }
+        .container {
+            max-width: 600px;
+            padding: 20px;
+            margin: 0 auto;
+        }
+        h1, h2 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+        }
+        form, div {
+            margin-bottom: 15px;
+        }
+        input, textarea, button {
+            display: block;
+            margin: 5px 0;
+            padding: 5px;
+            font-size: 14px;
+            width: 100%;
+            border: 1px solid black;
+        }
+        button {
+            background-color: white;
+            color: black;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #f0f0f0;
+        }
+        .note {
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        #resultText {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💎 Gun-Eth Notes Module Demo</h1>
+        
+        <div id="createNote">
+            <h2>🖊️ Create New Note</h2>
+            <input type="text" id="noteTitle" placeholder="Note title">
+            <input type="text" id="noteAuthor" placeholder="Author">
+            <textarea id="noteContent" rows="4" placeholder="Write your note here..."></textarea>
+            <label>
+                <input type="checkbox" id="isPublic"> Public note
+            </label>
+            <button onclick="createNewNote()">📝 Create Note</button>
+        </div>
+
+        <div id="notesList">
+            <h2>📜 Notes</h2>
+            <!-- Notes will be displayed here -->
+        </div>
+
+        <div id="resultSection">
+            <h2>📊 Result</h2>
+            <p id="resultText"></p>
+        </div>
+
+        <div id="authSection">
+            <h2>🔐 Authentication</h2>
+            <input type="text" id="username" placeholder="Username">
+            <input type="password" id="password" placeholder="Password">
+            <button onclick="login()">🔑 Login</button>
+            <button onclick="register()">📝 Register</button>
+            <button onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+
+    <script>
+        let gun, gunEth, notesModule, authModule;
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            const Gun = window.Gun;
+            gun = Gun();
+
+            const GunEthModule = window.GunEth;
+
+            if (typeof GunEthModule !== 'function') {
+                console.error("GunEth non è una funzione");
+                return;
+            }
+
+            GunEthModule(Gun, Gun.SEA, window.ethers, window.rxjs, window.DOMPurify);
+            window.gunEth = gun.GunEth();
+
+            const gunEthInstance = window.gunEth;
+            
+            console.log("Gun:", gun);
+            console.log("gunEth:", gunEthInstance);
+
+            if (!gunEthInstance || typeof gunEthInstance.notes !== 'object' || typeof gunEthInstance.auth !== 'object') {
+                console.error("I moduli notes o auth non sono disponibili in gunEth");
+                return;
+            }
+            notesModule = gunEthInstance.notes;
+            authModule = gunEthInstance.auth;
+
+            if (!notesModule || typeof notesModule.createNote !== 'function' || !authModule || typeof authModule.loginUser !== 'function') {
+                console.error("Le funzioni dei moduli notes o auth non sono disponibili");
+                return;
+            }
+
+            await loadNotes();
+        });
+
+        async function createNewNote() {
+            const title = document.getElementById('noteTitle').value;
+            const author = document.getElementById('noteAuthor').value;
+            const content = document.getElementById('noteContent').value;
+            const isPublic = document.getElementById('isPublic').checked;
+
+            if (!isPublic && !currentUser) {
+                document.getElementById('resultText').innerText = '❌ Error: You must be logged in to create private notes';
+                return;
+            }
+
+            if (title && author && content) {
+                try {
+                    const hash = await notesModule.createNote(title, author, content, isPublic);
+                    document.getElementById('noteTitle').value = '';
+                    document.getElementById('noteAuthor').value = '';
+                    document.getElementById('noteContent').value = '';
+                    document.getElementById('isPublic').checked = false;
+                    document.getElementById('resultText').innerText = '✅ Note created successfully';
+                    await loadNotes();
+                } catch (error) {
+                    document.getElementById('resultText').innerText = '❌ Error: ' + error.message;
+                }
+            }
+        }
+
+        async function loadNotes() {
+            try {
+                const notes = await notesModule.getUserNotes(currentUser);
+                const notesListElement = document.getElementById('notesList');
+                notesListElement.innerHTML = '<h2>📜 Notes</h2>';
+                if (notes.length === 0) {
+                    notesListElement.innerHTML += '<p>No notes found.</p>';
+                } else {
+                    notes.forEach(note => {
+                        const noteElement = document.createElement('div');
+                        noteElement.className = note.error ? 'note error' : 'note';
+                        if (note.error) {
+                            noteElement.innerHTML = `
+                                <h3>Error with note</h3>
+                                <p>${note.error}</p>
+                                <p><strong>Public:</strong> ${note.isPublic ? 'Yes' : 'No'}</p>
+                            `;
+                        } else {
+                            noteElement.innerHTML = `
+                                <h3>${note.title || 'Untitled'}</h3>
+                                <p><strong>Author:</strong> ${note.author || 'Anonymous'}</p>
+                                <p>${note.content || 'No content'}</p>
+                                <small>Last updated: ${new Date(note.lastUpdated).toLocaleString()}</small>
+                                <p><strong>Public:</strong> ${note.isPublic ? 'Yes' : 'No'}</p>
+                                <button onclick="deleteNote('${note.id}', ${note.isPublic})">🗑️ Delete</button>
+                            `;
+                        }
+                        notesListElement.appendChild(noteElement);
+                    });
+                }
+                console.log('Notes loaded:', notes);
+            } catch (error) {
+                console.error('Error loading notes:', error);
+                document.getElementById('resultText').innerText = 'Error loading notes: ' + error.message;
+            }
+        }
+
+        async function deleteNote(hash, isPublic) {
+            try {
+                await notesModule.deleteNote(hash, isPublic);
+                document.getElementById('resultText').innerText = '✅ Note deleted successfully';
+                await loadNotes();
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Error deleting note: ' + error.message;
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            try {
+                currentUser = await authModule.loginUser({username, password});
+                document.getElementById('resultText').innerText = '✅ Login successful';
+                await loadNotes();
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Login failed: ' + error.message;
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            try {
+                await authModule.registerUser({username, password});
+                document.getElementById('resultText').innerText = '✅ Registration successful. Please login.';
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Registration failed: ' + error.message;
+            }
+        }
+
+        async function logout() {
+            try {
+                await authModule.logout();
+                currentUser = null;
+                document.getElementById('resultText').innerText = '✅ Logout successful';
+                await loadNotes();
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Logout failed: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

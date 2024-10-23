@@ -14,53 +14,46 @@
     <!-- Include DOMPurify -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
     <!-- Include the Gun-Eth bundle -->
-    <script src="../../dist/gun-eth.bundle.js"></script>
+    <script src="../../dist/gun-eth.js"></script>
     <style>
         body {
-          font-family: Arial, sans-serif;
-          margin: 0;
-          padding: 20px;
-          background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: white;
+            color: black;
         }
         .container {
-          max-width: 400px;
-          background-color: white;
-          border: 1px solid #000;
-          padding: 10px;
+            max-width: 600px;
+            padding: 20px;
+            margin: 0 auto;
         }
-        h1,
-        h2 {
-          margin: 0 0 10px 0;
-          font-size: 16px;
+        h1, h2 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
         }
         form, div {
-          margin-bottom: 15px;
+            margin-bottom: 15px;
         }
-        input,
-        button {
-          display: inline-block;
-          margin: 2px 0;
-          padding: 2px;
-          font-size: 12px;
-        }
-        input {
-          width: 150px;
+        input, textarea, button {
+            display: block;
+            margin: 5px 0;
+            padding: 5px;
+            font-size: 14px;
+            width: 100%;
+            border: 1px solid black;
         }
         button {
-          width: 100px;
+            background-color: white;
+            color: black;
+            cursor: pointer;
         }
-        label {
-          display: inline-block;
-          width: 70px;
-          font-size: 12px;
+        button:hover {
+            background-color: #f0f0f0;
         }
-        #configStatus,
-        .result {
-          font-weight: bold;
-          margin-bottom: 10px;
-        }
-        .result {
-          color: blue;
+        #resultText {
+            font-weight: bold;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -70,14 +63,8 @@
         
         <form id="configForm">
             <h2>🔧 Configuration</h2>
-            <label for="rpcUrl">🌐 RPC URL:</label>
-            <br>
-            <input type="text" id="rpcUrl" name="rpcUrl" value="https://opt-sepolia.g.alchemy.com/v2/yjhjIoJ3o_at8ALT7nCJtFtjdqFpiBdx" required>
-            <br>
-            <label for="privateKey">🔑 Private Key:</label>
-            <br>
-            <input type="password" id="privateKey" name="privateKey" value="9ad1763b7bff251374fe0838ef3dac7bd0365c7f8c487112ee1fbbec7d03fee2" required>
-            <br>
+            <input type="text" id="rpcUrl" name="rpcUrl" placeholder="RPC URL" value="https://opt-sepolia.g.alchemy.com/v2/yjhjIoJ3o_at8ALT7nCJtFtjdqFpiBdx" required>
+            <input type="password" id="privateKey" name="privateKey" placeholder="Private Key" value="9ad1763b7bff251374fe0838ef3dac7bd0365c7f8c487112ee1fbbec7d03fee2" required>
             <button type="submit">⚙️ Configure</button>
         </form>
 
@@ -104,12 +91,13 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             gun = Gun();
-            if (typeof GunEth === 'function') {
-                GunEth(Gun, Gun.SEA, ethers, rxjs, DOMPurify);
-                console.log("Gun.chain.gunEth:", Gun.chain.gunEth);
-                if (typeof gun.gunEth === 'function') {
+            GunEth(Gun, Gun.SEA, ethers, rxjs, DOMPurify);
+
+            if (typeof window.GunEth === 'function') {
+                console.log("GunEth:", gunEth);
+                if (typeof gun.GunEth === 'function') {
                     try {
-                        gunEth = gun.gunEth();
+                        gunEth = gun.GunEth();
                         console.log("GunEth initialized:", gunEth);
                         if (!gunEth || typeof gunEth.setStandaloneConfig !== 'function') {
                             throw new Error("gunEth or setStandaloneConfig not properly initialized");
@@ -122,7 +110,7 @@
                     console.error("gun.gunEth non è una funzione", gun.gunEth);
                 }
             } else {
-                console.error("GunEth non è una funzione", GunEth);
+                console.error("GunEth non è una funzione", gunEth);
             }
         });
 

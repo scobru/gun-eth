@@ -60,3 +60,4 @@ export const messageList = (gun, SEA) => (roomId, pub) => new Observable((subscr
     unsubscribe();
   };
 });
+

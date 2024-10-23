@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>💎 Gun-Eth Posts Module Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/rxjs/7.8.1/rxjs.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
+    <script src="../../dist/gun-eth.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: white;
+            color: black;
+        }
+        .container {
+            max-width: 600px;
+            padding: 20px;
+            margin: 0 auto;
+        }
+        h1, h2 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+        }
+        form, div {
+            margin-bottom: 15px;
+        }
+        input, textarea, button {
+            display: block;
+            margin: 5px 0;
+            padding: 5px;
+            font-size: 14px;
+            width: 100%;
+            border: 1px solid black;
+        }
+        button {
+            background-color: white;
+            color: black;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #f0f0f0;
+        }
+        .post {
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        #resultText {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💎 Gun-Eth Posts Module Demo</h1>
+        
+        <div id="createPost">
+            <h2>🖊️ Create New Post</h2>
+            <textarea id="postContent" rows="4" placeholder="Write your post here..."></textarea>
+            <button onclick="createNewPost()">📝 Create Post</button>
+        </div>
+
+        <div id="postsList">
+            <h2>📜 Posts</h2>
+            <!-- Posts will be displayed here -->
+        </div>
+
+        <div id="resultSection">
+            <h2>📊 Result</h2>
+            <p id="resultText"></p>
+        </div>
+
+        <div id="authSection">
+            <h2>🔐 Authentication</h2>
+            <input type="text" id="username" placeholder="Username">
+            <input type="password" id="password" placeholder="Password">
+            <button onclick="login()">🔑 Login</button>
+            <button onclick="register()">📝 Register</button>
+            <button onclick="logout()">🚪 Logout</button>
+        </div>
+    </div>
+
+    <script>
+        let gun, gunEth, postsModule, authModule;
+        let currentUser = null;
+        const encryptionToken = "gun-eth"; // In a real app, this should be securely generated and stored
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            const Gun = window.Gun;
+            gun = Gun();
+            const GunEthModule = window.GunEth;
+            if (typeof GunEthModule !== 'function') {
+                console.error("GunEth is not a function");
+                return;
+            }
+            GunEthModule(Gun, Gun.SEA, window.ethers, window.rxjs, window.DOMPurify);
+            window.gunEth = gun.GunEth();
+
+            const gunEthInstance = window.gunEth;
+            
+            console.log("Gun:", gun);
+            console.log("gunEth:", gunEthInstance);
+
+            if (!gunEthInstance || typeof gunEthInstance.posts !== 'object' || typeof gunEthInstance.auth !== 'object') {
+                console.error("Posts or auth modules are not available in gunEth");
+                return;
+            }
+            postsModule = gunEthInstance.posts;
+            authModule = gunEthInstance.auth;
+
+            if (!postsModule || typeof postsModule.createPost !== 'function' || !authModule || typeof authModule.loginUser !== 'function') {
+                console.error("Functions of posts or auth modules are not available");
+                return;
+            }
+
+            await loadPosts();
+        });
+
+        async function createNewPost() {
+            if (!currentUser) {
+                document.getElementById('resultText').innerText = '❌ Error: You must be logged in to create a post';
+                return;
+            }
+
+            const content = document.getElementById('postContent').value;
+            if (content) {
+                try {
+                    const post = { text: content, timestamp: Date.now() };
+                    const key = await postsModule.createPost(post, encryptionToken);
+                    document.getElementById('postContent').value = '';
+                    document.getElementById('resultText').innerText = '✅ Post created successfully';
+                    await loadPosts();
+                } catch (error) {
+                    document.getElementById('resultText').innerText = '❌ Error: ' + error.message;
+                }
+            }
+        }
+
+        async function loadPosts() {
+            try {
+                const posts = await postsModule.getAllPosts(encryptionToken);
+                const postsListElement = document.getElementById('postsList');
+                postsListElement.innerHTML = '<h2>📜 Posts</h2>';
+                if (posts.length === 0) {
+                    postsListElement.innerHTML += '<p>No posts found.</p>';
+                } else {
+                    posts.forEach(post => {
+                        const postElement = document.createElement('div');
+                        postElement.className = 'post';
+                        postElement.innerHTML = `
+                            <p>${post.text}</p>
+                            <small>Posted on: ${new Date(post.timestamp).toLocaleString()}</small>
+                            <button onclick="deletePost('${post.id}')">🗑️ Delete</button>
+                        `;
+                        postsListElement.appendChild(postElement);
+                    });
+                }
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Error loading posts: ' + error.message;
+            }
+        }
+
+        async function deletePost(key) {
+            if (!currentUser) {
+                document.getElementById('resultText').innerText = '❌ Error: You must be logged in to delete a post';
+                return;
+            }
+
+            try {
+                await postsModule.deletePost(key);
+                document.getElementById('resultText').innerText = '✅ Post deleted successfully';
+                await loadPosts();
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Error deleting post: ' + error.message;
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            try {
+                currentUser = await authModule.loginUser({username, password});
+                document.getElementById('resultText').innerText = '✅ Login successful';
+                await loadPosts();
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Login failed: ' + error.message;
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            try {
+                await authModule.registerUser({username, password});
+                document.getElementById('resultText').innerText = '✅ Registration successful. Please login.';
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Registration failed: ' + error.message;
+            }
+        }
+
+        async function logout() {
+            try {
+                await authModule.logout();
+                currentUser = null;
+                document.getElementById('resultText').innerText = '✅ Logout successful';
+                await loadPosts();
+            } catch (error) {
+                document.getElementById('resultText').innerText = '❌ Logout failed: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
