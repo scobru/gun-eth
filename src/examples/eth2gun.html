@@ -10,7 +10,9 @@
     <!-- Include Ethers.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <!-- Include the Gun-Eth plugin -->
-    <script src="https://cdn.jsdelivr.net/npm/gun-eth/src/gun-eth.js""></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/gun-eth/src/index.js"></script> -->
+
+    <script src="./../index.js""></script>
     <style>
         body {
           font-family: Arial, sans-serif;
@@ -103,6 +105,9 @@
             const privateKey = document.getElementById('privateKey').value;
 
             gun = Gun();
+
+            console.log("gun", gun);
+
             gun.setStandaloneConfig(rpcUrl, privateKey);
 
             console.log('Standalone configuration set');
@@ -116,7 +121,7 @@
             }
 
             try {
-                const signature = await gun.createSignature(MESSAGE_TO_SIGN);
+                const signature = await gun.gunEth.createSignature(MESSAGE_TO_SIGN);
                 if (!signature) {
                     throw new Error('Failed to create signature');
                 }
@@ -124,7 +129,7 @@
                 const signer = new ethers.Wallet(document.getElementById('privateKey').value);
                 const address = await signer.getAddress();
 
-                await gun.createAndStoreEncryptedPair(address, signature);
+                await gun.gunEth.createAndStoreEncryptedPair(address, signature);
                 
                 document.getElementById('resultText').innerText = '✅ Encrypted pair created and stored successfully';
             } catch (error) {
@@ -139,7 +144,7 @@
             }
 
             try {
-                const signature = await gun.createSignature(MESSAGE_TO_SIGN);
+                const signature = await gun.gunEth.createSignature(MESSAGE_TO_SIGN);
                 if (!signature) {
                     throw new Error('Failed to create signature');
                 }
@@ -147,7 +152,7 @@
                 const signer = new ethers.Wallet(document.getElementById('privateKey').value);
                 const address = await signer.getAddress();
 
-                const pair = await gun.getAndDecryptPair(address, signature);
+                const pair = await gun.gunEth.getAndDecryptPair(address, signature);
                 
                 document.getElementById('resultText').innerHTML = `
                     <strong>🔑 Retrieved pair:</strong> 

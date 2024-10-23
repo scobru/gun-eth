@@ -11,7 +11,7 @@ import { createMessagingModule } from './messaging.js';
 import { createNotesModule } from './notes.js';
 import { createPostsModule } from './posts.js';
 
-const GunEth = (Gun, SEA, ethers, rxjs) => {
+const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
   console.log("Inizializzazione del plugin Gun-Eth");
 
   if (!checkEthers(ethers)) {
@@ -24,11 +24,11 @@ const GunEth = (Gun, SEA, ethers, rxjs) => {
 
   Gun.chain.gunEth = function() {
     const gun = this;
-    const auth = createAuthenticationModule(gun, SEA, ethers);
+    const auth = createAuthenticationModule(gun, SEA, ethers, rxjs);
     const certificates = createCertificatesModule(gun, SEA);
     const friends = createFriendsModule(gun, gun.user(), certificates.generateAddFriendCertificate);
     const messaging = createMessagingModule(gun, SEA);
-    const notes = createNotesModule(gun, SEA);
+    const notes = createNotesModule(gun, SEA, DOMPurify);
     const posts = createPostsModule(gun, SEA);
 
     return {
@@ -133,20 +133,21 @@ const GunEth = (Gun, SEA, ethers, rxjs) => {
   };
 
   console.log("Plugin Gun-Eth caricato con successo");
+
   return Gun;
 };
 
 // Configurazione UMD
 (function (root, factory) {
   if (typeof define === "function" && define.amd) {
-    define(["gun", "gun/sea", "ethers", "rxjs", "dompurify"], factory);
+    define(["gun", "gun/sea", "ethers", "rxjs", "DOMPurify"], factory);
   } else if (typeof module === "object" && module.exports) {
     module.exports = factory(
       require("gun"),
       require("gun/sea"),
       require("ethers"),
       require("rxjs"),
-      require("dompurify")
+      require("DOMPurify")
     );
   } else {
     root.GunEth = factory(root.Gun, root.SEA, root.ethers, root.rxjs, root.DOMPurify);
