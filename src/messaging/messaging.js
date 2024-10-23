@@ -4,10 +4,10 @@ import { createChat } from './createChat.js';
 import { messageList } from './messageList.js';
 import { sendMessage } from './sendMessage.js';
 import { sendVoiceMessage } from './sendVoiceMessage.js';
-import { createGroupMessagingModule } from './groupMessaging.js';
+import { createGroupMessaging } from './groupMessaging.js';
 
 export const createMessagingModule = (gun, SEA) => {
-  const groupMessaging = createGroupMessagingModule(gun, SEA);
+  const groupMessaging = createGroupMessaging(gun, SEA);
 
   return {
     chatsList: chatsList(gun),
@@ -18,6 +18,12 @@ export const createMessagingModule = (gun, SEA) => {
     createGroup: groupMessaging.createGroup,
     sendGroupMessage: groupMessaging.sendGroupMessage,
     getGroupMessages: groupMessaging.getGroupMessages,
-    addMemberToGroup: groupMessaging.addMemberToGroup
+    addMemberToGroup: groupMessaging.addMemberToGroup,
+    removeMemberFromGroup: groupMessaging.removeMemberFromGroup  // Aggiunta questa linea
   };
 };
+
+export const createGroupMessagingModule = (gun, SEA) => {
+  return createGroupMessaging(gun, SEA);
+};
+

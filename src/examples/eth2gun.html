@@ -9,10 +9,12 @@
     <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
     <!-- Include Ethers.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
-    <!-- Include the Gun-Eth plugin -->
-    <!-- <script src="https://cdn.jsdelivr.net/npm/gun-eth/src/index.js"></script> -->
-
-    <script src="./../index.js""></script>
+    <!-- Include RxJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/rxjs/7.8.1/rxjs.umd.min.js"></script>
+    <!-- Include DOMPurify -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
+    <!-- Include the Gun-Eth bundle -->
+    <script src="../../dist/gun-eth.bundle.js"></script>
     <style>
         body {
           font-family: Arial, sans-serif;
@@ -70,11 +72,11 @@
             <h2>🔧 Configuration</h2>
             <label for="rpcUrl">🌐 RPC URL:</label>
             <br>
-            <input type="text" id="rpcUrl" name="rpcUrl" required>
+            <input type="text" id="rpcUrl" name="rpcUrl" value="https://opt-sepolia.g.alchemy.com/v2/yjhjIoJ3o_at8ALT7nCJtFtjdqFpiBdx" required>
             <br>
             <label for="privateKey">🔑 Private Key:</label>
             <br>
-            <input type="password" id="privateKey" name="privateKey" required>
+            <input type="password" id="privateKey" name="privateKey" value="9ad1763b7bff251374fe0838ef3dac7bd0365c7f8c487112ee1fbbec7d03fee2" required>
             <br>
             <button type="submit">⚙️ Configure</button>
         </form>
@@ -97,31 +99,57 @@
 
     <script>
         let gun;
+        let gunEth;
         const MESSAGE_TO_SIGN = "GunDB access with Ethereum";
+
+        document.addEventListener('DOMContentLoaded', function() {
+            gun = Gun();
+            if (typeof GunEth === 'function') {
+                GunEth(Gun, Gun.SEA, ethers, rxjs, DOMPurify);
+                console.log("Gun.chain.gunEth:", Gun.chain.gunEth);
+                if (typeof gun.gunEth === 'function') {
+                    try {
+                        gunEth = gun.gunEth();
+                        console.log("GunEth initialized:", gunEth);
+                        if (!gunEth || typeof gunEth.setStandaloneConfig !== 'function') {
+                            throw new Error("gunEth or setStandaloneConfig not properly initialized");
+                        }
+                    } catch (error) {
+                        console.error("Error initializing gunEth:", error);
+                        gunEth = null;
+                    }
+                } else {
+                    console.error("gun.gunEth non è una funzione", gun.gunEth);
+                }
+            } else {
+                console.error("GunEth non è una funzione", GunEth);
+            }
+        });
 
         document.getElementById('configForm').addEventListener('submit', function(event) {
             event.preventDefault();
+            if (!gunEth || typeof gunEth.setStandaloneConfig !== 'function') {
+                console.error("gunEth non è inizializzato correttamente");
+                document.getElementById('resultText').innerText = '❌ Errore: gunEth non è inizializzato correttamente';
+                return;
+            }
             const rpcUrl = document.getElementById('rpcUrl').value;
             const privateKey = document.getElementById('privateKey').value;
 
-            gun = Gun();
-
-            console.log("gun", gun);
-
-            gun.setStandaloneConfig(rpcUrl, privateKey);
+            gunEth.setStandaloneConfig(rpcUrl, privateKey);
 
             console.log('Standalone configuration set');
             document.getElementById('resultText').innerText = '✅ Configuration set successfully';
         });
 
         document.getElementById('createPairBtn').addEventListener('click', async function() {
-            if (!gun) {
+            if (!gunEth) {
                 alert('⚠️ Please configure Gun first');
                 return;
             }
 
             try {
-                const signature = await gun.gunEth.createSignature(MESSAGE_TO_SIGN);
+                const signature = await gunEth.createSignature();
                 if (!signature) {
                     throw new Error('Failed to create signature');
                 }
@@ -129,7 +157,7 @@
                 const signer = new ethers.Wallet(document.getElementById('privateKey').value);
                 const address = await signer.getAddress();
 
-                await gun.gunEth.createAndStoreEncryptedPair(address, signature);
+                await gunEth.createAndStoreEncryptedPair(address, signature);
                 
                 document.getElementById('resultText').innerText = '✅ Encrypted pair created and stored successfully';
             } catch (error) {
@@ -138,13 +166,13 @@
         });
 
         document.getElementById('retrievePairBtn').addEventListener('click', async function() {
-            if (!gun) {
+            if (!gunEth) {
                 alert('⚠️ Please configure Gun first');
                 return;
             }
 
             try {
-                const signature = await gun.gunEth.createSignature(MESSAGE_TO_SIGN);
+                const signature = await gunEth.createSignature();
                 if (!signature) {
                     throw new Error('Failed to create signature');
                 }
@@ -152,7 +180,7 @@
                 const signer = new ethers.Wallet(document.getElementById('privateKey').value);
                 const address = await signer.getAddress();
 
-                const pair = await gun.gunEth.getAndDecryptPair(address, signature);
+                const pair = await gunEth.getAndDecryptPair(address, signature);
                 
                 document.getElementById('resultText').innerHTML = `
                     <strong>🔑 Retrieved pair:</strong> 

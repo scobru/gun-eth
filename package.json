@@ -4,11 +4,15 @@
   "description": "A GunDB plugin for Ethereum, and Web3",
   "main": "./src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "webpack"
   },
   "dependencies": {
     "ethers": "^6.0.0",
-    "gun": "^0.2020.1239"
+    "gun": "^0.2020.1239",
+    "rxjs": "^7.8.1",
+    "uuid": "^10.0.0",
+    "webpack": "^5.95.0",
+    "webpack-cli": "^5.1.4"
   },
   "author": "scobru",
   "repository": {
@@ -29,5 +33,10 @@
   "bugs": {
     "url": "https://github.com/scobru/gun-eth/issues"
   },
-  "homepage": "https://github.com/scobru/gun-eth#readme"
+  "homepage": "https://github.com/scobru/gun-eth#readme",
+  "devDependencies": {
+    "@babel/core": "^7.25.9",
+    "@babel/preset-env": "^7.25.9",
+    "babel-loader": "^9.2.1"
+  }
 }

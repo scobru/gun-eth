@@ -1,15 +1,15 @@
 // index.js
 
-import { checkEthers } from './utils.js';
-import { getEnsName, getSigner, getProvider } from './ethereum.js';
-import { shine } from './shine.js';
-import { str2ab } from './userManagement.js';
-import { createAuthenticationModule } from './authenticationIndex.js';
-import { createCertificatesModule } from './certificates.js';
-import { createFriendsModule } from './friends.js';
-import { createMessagingModule } from './messaging.js';
-import { createNotesModule } from './notes.js';
-import { createPostsModule } from './posts.js';
+const { checkEthers } = require('./utils');
+const { getEnsName, getSigner, getProvider ,setStandaloneConfig } = require('./ethereum');
+const { shine } = require('./shine');
+const { str2ab } = require('./authentication/register');
+const { createAuthenticationModule } = require('./authentication/authentication');
+const { createCertificatesModule } = require('./certificates/certificates');
+const { createFriendsModule } = require('./friends/friends');
+const { createMessagingModule, createGroupMessagingModule } = require('./messaging/messaging');
+const { createNotesModule } = require('./notes/notes');
+const { createPostsModule } = require('./posts/posts');
 
 const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
   console.log("Inizializzazione del plugin Gun-Eth");
@@ -23,25 +23,79 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
   Gun.chain.str2ab = str2ab;
 
   Gun.chain.gunEth = function() {
+    console.log("gunEth called");
     const gun = this;
-    const auth = createAuthenticationModule(gun, SEA, ethers, rxjs);
-    const certificates = createCertificatesModule(gun, SEA);
-    const friends = createFriendsModule(gun, gun.user(), certificates.generateAddFriendCertificate);
-    const messaging = createMessagingModule(gun, SEA);
-    const notes = createNotesModule(gun, SEA, DOMPurify);
-    const posts = createPostsModule(gun, SEA);
+    console.log("gun in gunEth:", gun);
+
+    let auth, certificates, friends, messaging, groupMessaging, notes, posts;
+
+    try {
+      auth = createAuthenticationModule(gun, SEA, ethers, rxjs);
+    } catch (error) {
+      console.error("Error creating authentication module:", error);
+      auth = {};
+    }
+
+    try {
+      certificates = createCertificatesModule(gun, SEA);
+    } catch (error) {
+      console.error("Error creating certificates module:", error);
+      certificates = {};
+    }
+
+    try {
+      friends = createFriendsModule(gun, gun.user(), certificates.generateAddFriendCertificate);
+    } catch (error) {
+      console.error("Error creating friends module:", error);
+      friends = {};
+    }
+
+    try {
+      messaging = createMessagingModule(gun, SEA);
+    } catch (error) {
+      console.error("Error creating messaging module:", error);
+      messaging = {};
+    }
+
+    try {
+      if (typeof createGroupMessagingModule === 'function') {
+        groupMessaging = createGroupMessagingModule(gun, SEA);
+      } else {
+        console.error("createGroupMessagingModule is not a function");
+        groupMessaging = {};
+      }
+    } catch (error) {
+      console.error("Error creating group messaging module:", error);
+      groupMessaging = {};
+    }
+
+    try {
+      notes = createNotesModule(gun, SEA, DOMPurify);
+    } catch (error) {
+      console.error("Error creating notes module:", error);
+      notes = {};
+    }
+
+    try {
+      posts = createPostsModule(gun, SEA);
+    } catch (error) {
+      console.error("Error creating posts module:", error);
+      posts = {};
+    }
 
     return {
       auth,
       certificates,
       friends,
       messaging,
+      groupMessaging,
       notes,
       posts,
       shine: (chain, nodeId, data, callback) => Gun.chain.shine.call(gun, chain, nodeId, data, callback),
       
       setStandaloneConfig: (newRpcUrl, newPrivateKey) => {
-        // Implementazione di setStandaloneConfig
+        console.log("setStandaloneConfig called with:", newRpcUrl, newPrivateKey);
+        setStandaloneConfig(newRpcUrl, newPrivateKey);
         console.log("Standalone configuration set");
         return gun;
       },
@@ -86,8 +140,8 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
           const ensName = await getEnsName(address);
           const username = ensName ? ensName : address;
 
-          await gun.get("gun-eth").get("users").get(username).put(encryptedPair);
-          await gun.get(`~${username}`).get("safe").get("enc").put(encryptedPair);
+          await gun.get("gun-eth").get("users").get(username).put({encryptedPair});
+          await gun.get(`~${username}`).get("safe").get("enc").put({encryptedPair});
 
           console.log("Encrypted pair stored for:", address);
         } catch (error) {
@@ -114,7 +168,7 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
         const base64UrlToHex = (base64url) => {
           const padding = "=".repeat((4 - (base64url.length % 4)) % 4);
           const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/") + padding;
-          const binary = atob(base64);
+          const binary = Buffer.from(base64, 'base64').toString('binary');
           return Array.from(binary, (char) =>
             char.charCodeAt(0).toString(16).padStart(2, "0")
           ).join("");
@@ -133,27 +187,10 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
   };
 
   console.log("Plugin Gun-Eth caricato con successo");
-
   return Gun;
 };
 
-// Configurazione UMD
-(function (root, factory) {
-  if (typeof define === "function" && define.amd) {
-    define(["gun", "gun/sea", "ethers", "rxjs", "DOMPurify"], factory);
-  } else if (typeof module === "object" && module.exports) {
-    module.exports = factory(
-      require("gun"),
-      require("gun/sea"),
-      require("ethers"),
-      require("rxjs"),
-      require("DOMPurify")
-    );
-  } else {
-    root.GunEth = factory(root.Gun, root.SEA, root.ethers, root.rxjs, root.DOMPurify);
-  }
-})(typeof self !== "undefined" ? self : this, function (Gun, SEA, ethers, rxjs, DOMPurify) {
-  return GunEth(Gun, SEA, ethers, rxjs, DOMPurify);
-});
-
-export default GunEth;
+module.exports = GunEth;
+if (typeof window !== 'undefined') {
+    window.GunEth = GunEth;
+}
