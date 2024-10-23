@@ -1,10 +1,10 @@
 // friendsCertificates.js
 
 /**
- * Genera un certificato per le richieste di amicizia.
- * @param {Object} gun - Istanza di Gun
- * @param {Object} SEA - Oggetto SEA di Gun
- * @returns {Promise<Object>} - Oggetto contenente il risultato dell'operazione
+ * Generates a certificate for friend requests.
+ * @param {Object} gun - Gun instance
+ * @param {Object} SEA - Gun's SEA object
+ * @returns {Promise<Object>} - Object containing the result of the operation
  */
 export const generateFriendRequestsCertificate = async (gun, SEA) => {
   const certificateExists = await gun
@@ -47,11 +47,11 @@ export const generateFriendRequestsCertificate = async (gun, SEA) => {
 };
 
 /**
- * Genera un certificato per aggiungere un amico.
- * @param {Object} gun - Istanza di Gun
- * @param {Object} SEA - Oggetto SEA di Gun
- * @param {string} publicKey - Chiave pubblica dell'amico da aggiungere
- * @returns {Promise<Object>} - Oggetto contenente il risultato dell'operazione
+ * Generates a certificate to add a friend.
+ * @param {Object} gun - Gun instance
+ * @param {Object} SEA - Gun's SEA object
+ * @param {string} publicKey - Public key of the friend to add
+ * @returns {Promise<Object>} - Object containing the result of the operation
  */
 export const generateAddFriendCertificate = async (gun, SEA, publicKey) => {
   const certificateExists = await gun

@@ -1,10 +1,40 @@
 import { SHINE_ABI, SHINE_OPTIMISM_SEPOLIA } from "../utils/utils.js";
 
+/**
+ * @typedef {Object} ShineResult
+ * @property {boolean} ok - Indicates if the operation was successful
+ * @property {string} message - A descriptive message about the operation result
+ * @property {number} [timestamp] - The timestamp of the verified data (if applicable)
+ * @property {string} [updater] - The address of the last updater (if applicable)
+ * @property {Object} [latestRecord] - The latest record from the blockchain (if applicable)
+ * @property {string} [nodeId] - The ID of the newly created node (for write operations)
+ * @property {string} [txHash] - The transaction hash (for write operations)
+ */
+
+/**
+ * Creates a SHINE (Secure Hybrid Information and Node Ecosystem) plugin for Gun
+ * @param {any} Gun - The Gun instance
+ * @param {any} ethers - The ethers.js library
+ * @param {Function} getSigner - Function to get the signer
+ * @param {Function} getProvider - Function to get the provider
+ * @returns {Function} The SHINE plugin function
+ */
 export function shine(Gun, ethers, getSigner, getProvider) {
-  return function (chain, nodeId, data, callback) {
+  /**
+   * The SHINE plugin function
+   * @param {string} chain - The blockchain network to use
+   * @param {string} [nodeId] - The ID of the node to verify (for read operations)
+   * @param {Object} [data] - The data to write (for write operations)
+   * @param {Function} callback - The callback function to handle the result
+   * @returns {Object} The Gun instance
+   * @this {any}
+   */
+
+  return function (chain, nodeId, data = null, callback = () => {}) {
     console.log("SHINE plugin called with:", { chain, nodeId, data });
 
     if (typeof callback !== "function") {
+      callback = () => {};
       console.error("Callback must be a function");
       return this;
     }
@@ -18,7 +48,12 @@ export function shine(Gun, ethers, getSigner, getProvider) {
       throw new Error("Chain not supported");
     }
 
-    // Funzione per verificare on-chain
+    /**
+     * Verifies data on-chain
+     * @param {string} nodeId - The ID of the node to verify
+     * @param {string} contentHash - The content hash to verify
+     * @returns {Promise<{isValid: boolean, timestamp: number, updater: string}>} The verification result
+     */
     const verifyOnChain = async (nodeId, contentHash) => {
       console.log("Verifying on chain:", { nodeId, contentHash });
       const signer = await getSigner();
@@ -35,7 +70,12 @@ export function shine(Gun, ethers, getSigner, getProvider) {
       return { isValid, timestamp, updater };
     };
 
-    // Funzione per scrivere on-chain
+    /**
+     * Writes data on-chain
+     * @param {string} nodeId - The ID of the node to write
+     * @param {string} contentHash - The content hash to write
+     * @returns {Promise<any>} The transaction object
+     */
     const writeOnChain = async (nodeId, contentHash) => {
       console.log("Writing on chain:", { nodeId, contentHash });
       const signer = await getSigner();
@@ -54,7 +94,11 @@ export function shine(Gun, ethers, getSigner, getProvider) {
       return tx;
     };
 
-    // Nuova funzione per ottenere l'ultimo record dalla blockchain
+    /**
+     * Gets the latest record from the blockchain
+     * @param {string} nodeId - The ID of the node to retrieve
+     * @returns {Promise<{contentHash: string, timestamp: number, updater: string}>} The latest record
+     */
     const getLatestRecord = async (nodeId) => {
       const signer = await getSigner();
       const contract = new ethers.Contract(
@@ -74,7 +118,7 @@ export function shine(Gun, ethers, getSigner, getProvider) {
       return { contentHash, timestamp, updater };
     };
 
-    // Processo SHINE
+    // SHINE process
     if (nodeId && !data) {
       gun.get(nodeId).once(async (existingData) => {
         if (!existingData) {

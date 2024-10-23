@@ -1,9 +1,24 @@
 // notes.js
 import DOMPurify from 'dompurify';
 
+/**
+ * Creates a notes module with encryption capabilities.
+ * @param {Object} gun - The Gun instance.
+ * @param {Object} SEA - The SEA (Security, Encryption, Authorization) object.
+ * @returns {Object} An object with note management functions.
+ */
 export const createNotesModule = (gun, SEA) => {
   const user = gun.user();
 
+  /**
+   * Creates a new note.
+   * @param {string} title - The title of the note.
+   * @param {string} author - The author of the note.
+   * @param {string} content - The content of the note.
+   * @param {boolean} isPublic - Whether the note is public or private.
+   * @param {string} [verification=''] - Verification data for public notes.
+   * @returns {Promise<string>} A promise that resolves to the note's hash.
+   */
   const createNote = async (title, author, content, isPublic, verification = '') => {
     const noteData = {
       title: DOMPurify.sanitize(title),
@@ -26,6 +41,11 @@ export const createNotesModule = (gun, SEA) => {
     return hash;
   };
 
+  /**
+   * Retrieves a note by its hash.
+   * @param {string} hash - The hash of the note to retrieve.
+   * @returns {Promise<Object|null>} A promise that resolves to the note object or null if not found.
+   */
   const getNote = async (hash) => {
     const publicNote = await gun.get("gun-eth").get("notes").get(hash).then();
     if (publicNote) {
@@ -41,6 +61,16 @@ export const createNotesModule = (gun, SEA) => {
     return null;
   };
 
+  /**
+   * Updates an existing note.
+   * @param {string} hash - The hash of the note to update.
+   * @param {string} title - The updated title of the note.
+   * @param {string} author - The updated author of the note.
+   * @param {string} content - The updated content of the note.
+   * @param {boolean} isPublic - Whether the note is public or private.
+   * @param {string} [verification=''] - Updated verification data for public notes.
+   * @returns {Promise<void>}
+   */
   const updateNote = async (hash, title, author, content, isPublic, verification = '') => {
     const noteData = {
       title: DOMPurify.sanitize(title),
@@ -60,10 +90,19 @@ export const createNotesModule = (gun, SEA) => {
     }
   };
 
+  /**
+   * Deletes a note by its hash.
+   * @param {string} hash - The hash of the note to delete.
+   * @returns {Promise<void>}
+   */
   const deleteNote = async (hash) => {
     await user.get("gun-eth").get("notes").get(hash).put(null);
   };
 
+  /**
+   * Retrieves all notes for the current user.
+   * @returns {Promise<Array>} A promise that resolves to an array of user's notes.
+   */
   const getUserNotes = () => {
     return new Promise((resolve) => {
       const notes = [];
@@ -75,7 +114,7 @@ export const createNotesModule = (gun, SEA) => {
               notes.push({ id, ...JSON.parse(decryptedData), isPublic: false });
             }
           } catch (error) {
-            console.error("Errore durante la decrittazione:", error);
+            console.error("Error during decryption:", error);
           }
         }
         resolve(notes);

@@ -1,12 +1,31 @@
 // groupMessaging.js
 import { v4 as uuidv4 } from "uuid";
 
+/**
+ * Creates a group messaging module with encryption capabilities.
+ * @param {Object} gun - The Gun instance.
+ * @param {Object} SEA - The SEA (Security, Encryption, Authorization) object.
+ * @returns {Object} An object with group messaging functions.
+ */
 export const createGroupMessaging = (gun, SEA) => {
+  /**
+   * Creates a new group with the given name and members.
+   * @param {string} groupName - The name of the group.
+   * @param {Array} members - An array of member objects containing pub and epub keys.
+   * @returns {Promise<Object>} A promise that resolves to an object containing groupId and groupKey.
+   */
   const createGroup = async (groupName, members) => {
     const groupId = uuidv4();
     return await updateGroupKey(groupId, groupName, members);
   };
 
+  /**
+   * Updates the group key for a given group.
+   * @param {string} groupId - The ID of the group.
+   * @param {string} groupName - The name of the group.
+   * @param {Array} members - An array of member objects containing pub and epub keys.
+   * @returns {Promise<Object>} A promise that resolves to an object containing groupId and groupKey.
+   */
   const updateGroupKey = async (groupId, groupName, members) => {
     const groupKey = await SEA.random(32).toString('base64');
     const encryptedGroupKey = {};
@@ -27,6 +46,12 @@ export const createGroupMessaging = (gun, SEA) => {
     return { groupId, groupKey };
   };
 
+  /**
+   * Sends a message to a group.
+   * @param {string} groupId - The ID of the group.
+   * @param {string} message - The message to send.
+   * @returns {Promise<void>}
+   */
   const sendGroupMessage = async (groupId, message) => {
     const group = await gun.user().get('groups').get(groupId).then();
     if (!group) {
@@ -43,6 +68,11 @@ export const createGroupMessaging = (gun, SEA) => {
     await gun.get(`groups/${groupId}/messages`).set(encryptedMessage);
   };
 
+  /**
+   * Retrieves messages from a group.
+   * @param {string} groupId - The ID of the group.
+   * @returns {Promise<Object>} A promise that resolves to a decrypted message object.
+   */
   const getGroupMessages = (groupId) => {
     return new Promise((resolve, reject) => {
       gun.get(`groups/${groupId}/messages`).map().once(async (encryptedMessage) => {
@@ -59,6 +89,11 @@ export const createGroupMessaging = (gun, SEA) => {
     });
   };
 
+  /**
+   * Retrieves the group key for a given group.
+   * @param {string} groupId - The ID of the group.
+   * @returns {Promise<string>} A promise that resolves to the decrypted group key.
+   */
   const getGroupKey = async (groupId) => {
     const group = await gun.user().get('groups').get(groupId).then();
     if (!group || !group.encryptedKeys[gun.user().is.pub]) {
@@ -69,6 +104,12 @@ export const createGroupMessaging = (gun, SEA) => {
     return await SEA.decrypt(encryptedGroupKey, sharedSecret);
   };
 
+  /**
+   * Adds a new member to an existing group.
+   * @param {string} groupId - The ID of the group.
+   * @param {Object} newMember - An object containing the new member's pub and epub keys.
+   * @returns {Promise<void>}
+   */
   const addMemberToGroup = async (groupId, newMember) => {
     const group = await gun.user().get('groups').get(groupId).then();
     if (!group) {
@@ -82,6 +123,12 @@ export const createGroupMessaging = (gun, SEA) => {
     await updateGroupKey(groupId, group.name, memberDetails);
   };
 
+  /**
+   * Removes a member from an existing group and re-encrypts messages.
+   * @param {string} groupId - The ID of the group.
+   * @param {string} memberPubToRemove - The public key of the member to remove.
+   * @returns {Promise<void>}
+   */
   const removeMemberFromGroup = async (groupId, memberPubToRemove) => {
     const group = await gun.user().get('groups').get(groupId).then();
     if (!group) {
@@ -97,7 +144,7 @@ export const createGroupMessaging = (gun, SEA) => {
 
     await updateGroupKey(groupId, group.name, memberDetails);
 
-    // Rimuovi i messaggi vecchi e ricrittografa con la nuova chiave
+    // Remove old messages and re-encrypt with the new key
     const oldMessages = await gun.get(`groups/${groupId}/messages`).then();
     const newGroupKey = await getGroupKey(groupId);
 

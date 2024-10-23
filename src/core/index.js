@@ -11,7 +11,7 @@ const { createMessagingModule, createGroupMessagingModule } = require('../module
 const { createNotesModule } = require('../modules/notes/notes');
 const { createPostsModule } = require('../modules/posts/posts');
 
-const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
+const gun_eth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
   console.log("Inizializzazione del plugin Gun-Eth");
 
   if (!checkEthers(ethers)) {
@@ -30,7 +30,7 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
     let auth, certificates, friends, messaging, groupMessaging, notes, posts;
 
     try {
-      auth = createAuthenticationModule(gun, SEA, ethers, rxjs);
+      auth = createAuthenticationModule(gun);
     } catch (error) {
       console.error("Error creating authentication module:", error);
       auth = {};
@@ -70,7 +70,7 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
     }
 
     try {
-      notes = createNotesModule(gun, SEA, DOMPurify);
+      notes = createNotesModule(gun, SEA);
     } catch (error) {
       console.error("Error creating notes module:", error);
       notes = {};
@@ -190,7 +190,8 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
   return Gun;
 };
 
-module.exports = GunEth;
-if (typeof window !== 'undefined') {
-    window.GunEth = GunEth;
+module.exports = gun_eth;
+
+if (typeof window !== 'undefined' && window.gun_eth === "undefined") {
+    window.gun_eth = gun_eth;
 }

@@ -1,3 +1,12 @@
+/**
+ * Accepts a friend request and adds the friend to the user's friend list.
+ * @param {Object} gun - Gun instance
+ * @param {Object} user - Current user object
+ * @returns {Function} - Async function that accepts the friend request
+ * @param {Object} params - Parameters for accepting the friend request
+ * @param {string} params.key - Key of the friend request
+ * @param {string} params.publicKey - Public key of the friend
+ */
 export const acceptFriendRequest = (gun, user) => async ({ key, publicKey }) => {
     try {
       await gun.user().get("friendRequests").get(key).put(null);

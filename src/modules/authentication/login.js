@@ -1,12 +1,10 @@
-// authentication.js
-
 /**
- * Autentica un utente registrato.
- * @param {Object} gun - Istanza di Gun
- * @param {Object} credentials - Le credenziali dell'utente
- * @param {string} credentials.username - Il nome utente
- * @param {string} credentials.password - La password
- * @returns {Promise<Object>} - Un oggetto con il risultato dell'autenticazione
+ * Authenticates a registered user.
+ * @param {Object} gun - Gun instance
+ * @param {Object} credentials - User credentials
+ * @param {string} credentials.username - The username
+ * @param {string} credentials.password - The password
+ * @returns {Promise<Object>} - An object with the authentication result
  */
 export const loginUser = (gun, credentials) => {
     return new Promise((resolve) => {

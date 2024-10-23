@@ -1,11 +1,11 @@
 // messagingCertificates.js
 
 /**
- * Crea un certificato per le chat.
- * @param {Object} gun - Istanza di Gun
- * @param {Object} SEA - Oggetto SEA di Gun
- * @param {string} publicKey - Chiave pubblica dell'utente per cui creare il certificato
- * @returns {Promise<Object>} - Oggetto contenente il risultato dell'operazione
+ * Creates a certificate for chats.
+ * @param {Object} gun - Gun instance
+ * @param {Object} SEA - Gun's SEA object
+ * @param {string} publicKey - Public key of the user for whom to create the certificate
+ * @returns {Promise<Object>} - Object containing the result of the operation
  */
 export const createChatsCertificate = async (gun, SEA, publicKey) => {
     const certificateExists = await gun
@@ -50,11 +50,11 @@ export const createChatsCertificate = async (gun, SEA, publicKey) => {
   };
   
   /**
-   * Crea un certificato per i messaggi.
-   * @param {Object} gun - Istanza di Gun
-   * @param {Object} SEA - Oggetto SEA di Gun
-   * @param {string} publicKey - Chiave pubblica dell'utente per cui creare il certificato
-   * @returns {Promise<Object>} - Oggetto contenente il risultato dell'operazione
+   * Creates a certificate for messages.
+   * @param {Object} gun - Gun instance
+   * @param {Object} SEA - Gun's SEA object
+   * @param {string} publicKey - Public key of the user for whom to create the certificate
+   * @returns {Promise<Object>} - Object containing the result of the operation
    */
   export const createMessagesCertificate = async (gun, SEA, publicKey) => {
     const certificateExists = await gun

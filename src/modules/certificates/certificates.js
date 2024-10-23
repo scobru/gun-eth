@@ -4,10 +4,10 @@ import { generateFriendRequestsCertificate, generateAddFriendCertificate } from 
 import { createChatsCertificate, createMessagesCertificate } from './messagingCertificates.js';
 
 /**
- * Crea un oggetto che contiene tutte le funzionalità relative ai certificati.
- * @param {Object} gun - Istanza di Gun
- * @param {Object} SEA - Oggetto SEA di Gun
- * @returns {Object} - Oggetto contenente tutte le funzionalità relative ai certificati
+ * Creates an object that contains all the functionalities related to certificates.
+ * @param {Object} gun - Gun instance
+ * @param {Object} SEA - Gun's SEA object
+ * @returns {Object} - Object containing all the functionalities related to certificates
  */
 export const createCertificatesModule = (gun, SEA) => {
   return {
