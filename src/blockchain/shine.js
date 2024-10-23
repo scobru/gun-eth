@@ -1,4 +1,4 @@
-import { SHINE_ABI, SHINE_OPTIMISM_SEPOLIA } from "./utils.js";
+import { SHINE_ABI, SHINE_OPTIMISM_SEPOLIA } from "../utils/utils.js";
 
 export function shine(Gun, ethers, getSigner, getProvider) {
   return function (chain, nodeId, data, callback) {

@@ -1,15 +1,15 @@
 // index.js
 
-const { checkEthers } = require('./utils');
-const { getEnsName, getSigner, getProvider ,setStandaloneConfig } = require('./ethereum');
-const { shine } = require('./shine');
-const { str2ab } = require('./authentication/register');
-const { createAuthenticationModule } = require('./authentication/authentication');
-const { createCertificatesModule } = require('./certificates/certificates');
-const { createFriendsModule } = require('./friends/friends');
-const { createMessagingModule, createGroupMessagingModule } = require('./messaging/messaging');
-const { createNotesModule } = require('./notes/notes');
-const { createPostsModule } = require('./posts/posts');
+const { checkEthers } = require('../utils/utils');
+const { getEnsName, getSigner, getProvider ,setStandaloneConfig } = require('../blockchain/ethereum');
+const { shine } = require('../blockchain/shine');
+const { str2ab } = require('../modules/authentication/register');
+const { createAuthenticationModule } = require('../modules/authentication/authentication');
+const { createCertificatesModule } = require('../modules/certificates/certificates');
+const { createFriendsModule } = require('../modules/friends/friends');
+const { createMessagingModule, createGroupMessagingModule } = require('../modules/messaging/messaging');
+const { createNotesModule } = require('../modules/notes/notes');
+const { createPostsModule } = require('../modules/posts/posts');
 
 const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
   console.log("Inizializzazione del plugin Gun-Eth");
