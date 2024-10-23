@@ -3,7 +3,7 @@
     define(["gun", "gun/sea", "ethers"], factory);
   } else if (typeof module === "object" && module.exports) {
     module.exports = factory(
-      require("gun/gun"),
+      require("gun"),
       require("gun/sea"),
       require("ethers")
     );
@@ -13,9 +13,12 @@
 })(typeof self !== "undefined" ? self : this, function (Gun, SEA, ethers) {
   console.log("Factory del plugin Gun-Eth chiamata");
 
-  const MESSAGE_TO_SIGN = "Accesso a GunDB con Ethereum";
+  const MESSAGE_TO_SIGN = "GunDB access with Ethereum";
 
-  // Funzione per verificare se ethers è disponibile
+  /**
+   * Verifica se ethers è disponibile nel contesto corrente.
+   * @returns {boolean} True se ethers è disponibile, altrimenti false.
+   */
   function checkEthers() {
     if (typeof ethers === "undefined") {
       console.error(
@@ -190,19 +193,18 @@
   let privateKey = "";
 
   /**
-   * Funzione per ottenere il signer
-   * @returns {Promise<ethers.Signer>} Il signer.
+   * Ottiene il signer Ethereum.
+   * @returns {Promise<ethers.Signer>} Il signer Ethereum.
+   * @throws {Error} Se non è disponibile un provider Ethereum valido.
    */
   const getSigner = async () => {
     if (rpcUrl && privateKey) {
-      // Modalità standalone
       const provider = new ethers.JsonRpcProvider(rpcUrl);
       return new ethers.Wallet(privateKey, provider);
     } else if (
       typeof window !== "undefined" &&
       typeof window.ethereum !== "undefined"
     ) {
-      // Modalità browser
       await window.ethereum.request({ method: "eth_requestAccounts" });
       const provider = new ethers.BrowserProvider(window.ethereum);
       return provider.getSigner();
@@ -212,10 +214,54 @@
   };
 
   /**
-   * Sets standalone configuration for Gun.
-   * @param {string} newRpcUrl - The new RPC URL.
-   * @param {string} newPrivateKey - The new private key.
-   * @returns {Gun} The Gun instance for chaining.
+   * Ottiene il provider Ethereum.
+   * @returns {Promise<ethers.Provider>} Il provider Ethereum.
+   * @throws {Error} Se non è disponibile un provider Ethereum valido.
+   */
+  const getProvider = async () => {
+    if (rpcUrl && privateKey) {
+      return new ethers.JsonRpcProvider(rpcUrl);
+    } else if (
+      typeof window !== "undefined" &&
+      typeof window.ethereum !== "undefined"
+    ) {
+      return new ethers.BrowserProvider(window.ethereum);
+    } else {
+      throw new Error("No valid Ethereum provider found");
+    }
+  }
+
+  /**
+   * Ottiene il nome ENS associato a un indirizzo Ethereum.
+   * @param {string} address - L'indirizzo Ethereum da cercare.
+   * @returns {Promise<string|null>} Il nome ENS associato o null se non viene trovato.
+   */
+  async function getEnsName(address) {
+    // Crea un provider connesso alla rete Ethereum principale
+    const provider = await getProvider();
+  
+    try {
+      // Cerca il nome ENS associato all'indirizzo
+      const ensName = await provider.lookupAddress(address);
+      
+      if (ensName) {
+        console.log(`L'ENS name per l'indirizzo ${address} è: ${ensName}`);
+        return ensName;
+      } else {
+        console.log(`Nessun ENS name trovato per l'indirizzo ${address}`);
+        return null;
+      }
+    } catch (error) {
+      console.error("Errore durante la ricerca dell'ENS name:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Configura la modalità standalone per Gun.
+   * @param {string} newRpcUrl - Il nuovo URL RPC.
+   * @param {string} newPrivateKey - La nuova chiave privata.
+   * @returns {Gun} L'istanza di Gun per il chaining.
    */
   Gun.chain.setStandaloneConfig = function (newRpcUrl, newPrivateKey) {
     rpcUrl = newRpcUrl;
@@ -225,10 +271,10 @@
   };
 
   /**
-   * Verifies an Ethereum signature.
-   * @param {string} message - The original message that was signed.
-   * @param {string} signature - The signature to verify.
-   * @returns {Promise<string|null>} The recovered address or null if verification fails.
+   * Verifica una firma Ethereum.
+   * @param {string} message - Il messaggio originale firmato.
+   * @param {string} signature - La firma da verificare.
+   * @returns {Promise<string|null>} L'indirizzo recuperato o null se la verifica fallisce.
    */
   Gun.chain.verifySignature = async function (message, signature) {
     try {
@@ -241,9 +287,9 @@
   };
 
   /**
-   * Generates a password from a signature.
-   * @param {string} signature - The signature to derive the password from.
-   * @returns {string|null} The generated password or null if generation fails.
+   * Genera una password da una firma.
+   * @param {string} signature - La firma da cui derivare la password.
+   * @returns {string|null} La password generata o null se la generazione fallisce.
    */
   Gun.chain.generatePassword = function (signature) {
     try {
@@ -258,20 +304,14 @@
   };
 
   /**
-   * Creates an Ethereum signature for a given message.
-   * @param {string} message - The message to sign.
-   * @returns {Promise<string|null>} The signature or null if signing fails.
+   * Crea una firma Ethereum per un messaggio dato.
+   * @param {string} message - Il messaggio da firmare.
+   * @returns {Promise<string|null>} La firma o null se la firma fallisce.
    */
-  Gun.chain.createSignature = async function (message) {
+  Gun.chain.createSignature = async function () {
     try {
-      // Verifica se il messaggio è uguale a MESSAGE_TO_SIGN
-      if (message !== MESSAGE_TO_SIGN) {
-        throw new Error(
-          "Invalid message, valid message is: " + MESSAGE_TO_SIGN
-        );
-      }
       const signer = await getSigner();
-      const signature = await signer.signMessage(message);
+      const signature = await signer.signMessage(MESSAGE_TO_SIGN);
       console.log("Signature created:", signature);
       return signature;
     } catch (error) {
@@ -281,17 +321,25 @@
   };
 
   /**
-   * Creates and stores an encrypted key pair for a given address.
-   * @param {string} address - The Ethereum address to associate with the key pair.
-   * @param {string} signature - The signature to use for encryption.
+   * Crea e memorizza una coppia di chiavi crittografate per un indirizzo dato.
+   * @param {string} address - L'indirizzo Ethereum da associare alla coppia di chiavi.
+   * @param {string} signature - La firma da usare per la crittografia.
    * @returns {Promise<void>}
    */
-  Gun.chain.createAndStoreEncryptedPair = async function (address, signature) {
+  Gun.chain.createAndStoreEncryptedPair = async function (address, password) {
     try {
       const gun = this;
       const pair = await SEA.pair();
-      const encryptedPair = await SEA.encrypt(JSON.stringify(pair), signature);
-      await gun.get("gun-eth").get("users").get(address).put({ encryptedPair });
+      const encryptedPair = await SEA.encrypt(JSON.stringify(pair), password);
+      const ensName = await getEnsName(address);
+      const username = ensName ? ensName : address;
+
+      // Store the encrypted pair in the users's encryptedPair
+      await gun.get("gun-eth").get("users").get(username).put(encryptedPair);
+
+      // Store the encrypted pair in the user's safe
+      await gun.get(`~${username}`).get("safe").get("enc").put(encryptedPair);
+
       console.log("Encrypted pair stored for:", address);
     } catch (error) {
       console.error("Error creating and storing encrypted pair:", error);
@@ -299,12 +347,12 @@
   };
 
   /**
-   * Retrieves and decrypts a stored key pair for a given address.
-   * @param {string} address - The Ethereum address associated with the key pair.
-   * @param {string} signature - The signature to use for decryption.
-   * @returns {Promise<Object|null>} The decrypted key pair or null if retrieval fails.
+   * Recupera e decritta una coppia di chiavi memorizzata per un indirizzo dato.
+   * @param {string} address - L'indirizzo Ethereum associato alla coppia di chiavi.
+   * @param {string} signature - La firma da usare per la decrittazione.
+   * @returns {Promise<Object|null>} La coppia di chiavi decrittata o null se il recupero fallisce.
    */
-  Gun.chain.getAndDecryptPair = async function (address, signature) {
+  Gun.chain.getAndDecryptPair = async function (address, password) {
     try {
       const gun = this;
       const encryptedData = await gun
@@ -316,7 +364,7 @@
       if (!encryptedData) {
         throw new Error("No encrypted data found for this address");
       }
-      const decryptedPair = await SEA.decrypt(encryptedData, signature);
+      const decryptedPair = await SEA.decrypt(encryptedData, password);
       console.log(decryptedPair);
       return decryptedPair;
     } catch (error) {
@@ -326,12 +374,12 @@
   };
 
   /**
-   * SHINE (Secure Hybrid Information and Network Environment) functionality.
-   * @param {string} chain - The blockchain to use (e.g., "optimismSepolia").
-   * @param {string} nodeId - The ID of the node to verify or write.
-   * @param {Object} data - The data to write (if writing).
-   * @param {Function} callback - Callback function to handle the result.
-   * @returns {Gun} The Gun instance for chaining.
+   * Funzionalità SHINE (Secure Hybrid Information and Network Environment).
+   * @param {string} chain - La blockchain da utilizzare (es. "optimismSepolia").
+   * @param {string} nodeId - L'ID del nodo da verificare o scrivere.
+   * @param {Object} data - I dati da scrivere (se in scrittura).
+   * @param {Function} callback - Funzione di callback per gestire il risultato.
+   * @returns {Gun} L'istanza di Gun per il chaining.
    */
   Gun.chain.shine = function (chain, nodeId, data, callback) {
     console.log("SHINE plugin called with:", { chain, nodeId, data });
@@ -348,7 +396,6 @@
 
     const gun = this;
 
-    // Seleziona l'indirizzo basato sulla catena
     if (chain === "optimismSepolia") {
       SHINE_CONTRACT_ADDRESS = SHINE_OPTIMISM_SEPOLIA;
     } else {
@@ -413,7 +460,6 @@
 
     // Processo SHINE
     if (nodeId && !data) {
-      // Caso 1: Utente passa solo il nodo
       gun.get(nodeId).once(async (existingData) => {
         if (!existingData) {
           if (callback) callback({ err: "Node not found in GunDB" });
@@ -422,7 +468,6 @@
 
         console.log("existingData", existingData);
 
-        // Usa il contentHash memorizzato invece di ricalcolarlo
         const contentHash = existingData._contentHash;
         console.log("contentHash", contentHash);
 
@@ -461,7 +506,6 @@
         }
       });
     } else if (data && !nodeId) {
-      // Caso 2: Utente passa solo il testo (data)
       const newNodeId = Gun.text.random();
       const dataString = JSON.stringify(data);
       const contentHash = ethers.keccak256(ethers.toUtf8Bytes(dataString));
@@ -499,12 +543,11 @@
   };
 
   /**
-   * Converts a Gun private key to an Ethereum account.
-   * @param {string} gunPrivateKey - The Gun private key in base64url format.
-   * @returns {Object} An object containing the Ethereum account and public key.
+   * Converte una chiave privata Gun in un account Ethereum.
+   * @param {string} gunPrivateKey - La chiave privata Gun in formato base64url.
+   * @returns {Object} Un oggetto contenente l'account Ethereum e la chiave pubblica.
    */
   Gun.chain.gunToEthAccount = function (gunPrivateKey) {
-    // Function to convert base64url to hex
     const base64UrlToHex = (base64url) => {
       const padding = "=".repeat((4 - (base64url.length % 4)) % 4);
       const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/") + padding;
@@ -514,13 +557,8 @@
       ).join("");
     };
 
-    // Convert Gun private key to hex format
     const hexPrivateKey = "0x" + base64UrlToHex(gunPrivateKey);
-
-    // Create an Ethereum wallet from the private key
     const wallet = new ethers.Wallet(hexPrivateKey);
-
-    // Get the public address (public key)
     const publicKey = wallet.address;
 
     return {
