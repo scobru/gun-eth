@@ -1,22 +1,35 @@
+import { generateAddFriendCertificate } from "../certificates/friendsCertificates";
+
 /**
- * Creates a function to send a friend request to another user.
- * @param {Object} gun - Gun instance
- * @param {Object} user - Current user object
- * @param {Function} generateAddFriendCertificate - Function to generate an add friend certificate
- * @returns {Function} - Async function that sends a friend request
+ * Invia una richiesta di amicizia a un altro utente.
+ * @param {string} publicKey - Chiave pubblica dell'utente destinatario
+ * @param {Function} callback - Funzione di callback opzionale
+ * @returns {Promise<Object>} - Oggetto risultato con informazioni sul successo o errore
  */
-export const addFriendRequest = (gun, user, generateAddFriendCertificate) => async (publicKey) => {
-    try {
-      // Retrieve the friend request certificate from the target user
-      const addFriendRequestCertificate = await gun.user(publicKey).get("certificates").get("friendRequests").then();
-      
-      // Send the friend request to the target user
-      await gun.user(publicKey).get("friendRequests").set(user.is.pub, { opt: { cert: addFriendRequestCertificate } });
-      // Generate an add friend certificate for the target user
-      await generateAddFriendCertificate(publicKey);
-      
-      return { success: "Friend request sent successfully." };
-    } catch (err) {
-      return { errMessage: err.message, errCode: "friend-request-error", success: undefined };
-    }
-  };
+export const addFriendRequest = async ( gun, publicKey, callback = () => {}) => {
+  try {
+    // Recupera il certificato di richiesta di amicizia dall'utente destinatario
+    const addFriendRequestCertificate = await gun
+      .user(publicKey)
+      .get("certificates")
+      .get("friendRequests")
+      .then();
+
+    // Invia la richiesta di amicizia all'utente destinatario
+    await gun.user(publicKey).get("friendRequests").set(user.is.pub, {
+      opt: { cert: addFriendRequestCertificate }
+    });
+
+    // Genera un certificato di aggiunta amico per l'utente destinatario
+    await generateAddFriendCertificate(gun, gun.SEA, publicKey);
+
+    const result = { success: "Friend request sent successfully." };
+    callback(result);
+    return result;
+  } catch (err) {
+    const result = { errMessage: err.message, errCode: "friend-request-error", success: undefined };
+    callback(result);
+    return result;
+  }
+};
+

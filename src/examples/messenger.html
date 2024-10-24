@@ -166,19 +166,29 @@
                 return;
             }
             const friendUsername = document.getElementById('friendUsername').value;
+
             try {
-                if (typeof friendsModule.addFriendRequest !== 'function') {
-                    throw new Error('La funzione addFriendRequest non è disponibile');
+                // Cerca l'utente per nome utente
+                const friendUser = await gun.get("~@"+friendUsername).once();
+                console.log("Friend User:", friendUser);
+
+                if (!friendUser || !friendUser.pub) {
+                    throw new Error('Utente non trovato o chiave pubblica mancante');
                 }
+
+                const friendPub = friendUser.pub;
+                console.log("Chiave pubblica dell'amico:", friendPub);
+
+                // Genera il certificato
                 const certificate = await certificatesModule.generateAddFriendCertificate(friendUsername);
                 console.log("Certificate:", certificate);
 
-                // search pub from username
-                const friend = await gun.user(friendUsername);
-                const friendPub = friend.is.pub;
+                console.log(friendsModule)
 
+                // Invia la richiesta di amicizia
                 const result = await friendsModule.addFriendRequest(friendPub, certificate);
                 console.log("Result:", result);
+
                 if (result.success) {
                     document.getElementById('resultText').innerText = '✅ Richiesta di amicizia inviata con successo. In attesa di accettazione.';
                 } else {
@@ -187,7 +197,7 @@
                 updateUI();
             } catch (error) {
                 console.error('Errore in addFriend:', error);
-                document.getElementById('resultText').innerText = '❌ Impossibile inviare la richiesta di amicizia: ' + error.message;
+                document.getElementById('resultText').innerText = '❌ Impossibile trovare l\'utente o inviare la richiesta di amicizia: ' + error.message;
             }
         }
 
@@ -212,26 +222,60 @@
             const friendsListElement = document.getElementById('friendsList');
             const recipientSelectElement = document.getElementById('recipientSelect');
             const messagesListElement = document.getElementById('messagesList');
+            const friendRequestsElement = document.getElementById('friendRequests');
 
             if (currentUser) {
                 // Aggiorna la lista degli amici
-                friendsListElement.innerHTML = '<h3>Friends:</h3>';
-                recipientSelectElement.innerHTML = '<option value="">Select a recipient</option>';
+                friendsListElement.innerHTML = '<h3>Amici:</h3>';
+                recipientSelectElement.innerHTML = '<option value="">Seleziona un destinatario</option>';
                 
+                let hasFriends = false;
                 const friendsSubscription = friendsModule.friendsList.subscribe({
                     next: (friend) => {
                         if (friend) {
-                            const friendName = friend.displayName || friend.alias;
+                            hasFriends = true;
+                            const friendName = friend.displayName || friend.alias || 'Amico senza nome';
                             friendsListElement.innerHTML += `<p>${friendName}</p>`;
                             recipientSelectElement.innerHTML += `<option value="${friend.pub}">${friendName}</option>`;
                         }
                     },
-                    error: (err) => console.error('Error in friends list:', err),
-                    complete: () => console.log('Friends list subscription completed')
+                    error: (err) => console.error('Errore nella lista amici:', err),
+                    complete: () => {
+                        console.log('Sottoscrizione lista amici completata');
+                        if (!hasFriends) {
+                            friendsListElement.innerHTML += '<p>Nessun amico trovato</p>';
+                        }
+                    }
                 });
 
-                // Annulla l'iscrizione dopo un breve ritardo per assicurarsi che tutti gli amici siano caricati
+                // Annulla l'iscrizione dopo un breve ritardo
                 setTimeout(() => friendsSubscription.unsubscribe(), 1000);
+
+                // Aggiorna la lista delle richieste di amicizia
+                friendRequestsElement.innerHTML = '<h3>Richieste di amicizia:</h3>';
+                let hasRequests = false;
+                const friendRequestsSubscription = friendsModule.friendRequests.subscribe({
+                    next: (request) => {
+                        if (request) {
+                            hasRequests = true;
+                            friendRequestsElement.innerHTML += `
+                                <p>${request.username}</p>
+                                <button onclick="acceptFriendRequest('${request.key}', '${request.publicKey}')">Accetta</button>
+                                <button onclick="rejectFriendRequest('${request.key}')">Rifiuta</button>
+                            `;
+                        }
+                    },
+                    error: (err) => console.error('Errore nelle richieste di amicizia:', err),
+                    complete: () => {
+                        console.log('Sottoscrizione richieste di amicizia completata');
+                        if (!hasRequests) {
+                            friendRequestsElement.innerHTML += '<p>Nessuna richiesta di amicizia</p>';
+                        }
+                    }
+                });
+
+                // Annulla l'iscrizione dopo un breve ritardo
+                setTimeout(() => friendRequestsSubscription.unsubscribe(), 1000);
 
                 // Aggiorna la lista dei messaggi
                 messagesListElement.innerHTML = '<h3>Messages:</h3>';
@@ -278,6 +322,7 @@
                 friendsListElement.innerHTML = '';
                 recipientSelectElement.innerHTML = '';
                 messagesListElement.innerHTML = '';
+                friendRequestsElement.innerHTML = '';
                 if (window.messageSubscription) {
                     window.messageSubscription.unsubscribe();
                 }
