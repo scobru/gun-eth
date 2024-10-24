@@ -1,15 +1,27 @@
 // index.js
 
-const { checkEthers } = require('../utils/utils');
-const { getEnsName, getSigner, getProvider ,setStandaloneConfig } = require('../blockchain/ethereum');
-const { shine } = require('../blockchain/shine');
-const { str2ab } = require('../modules/authentication/register');
-const { createAuthenticationModule } = require('../modules/authentication/authentication');
-const { createCertificatesModule } = require('../modules/certificates/certificates');
-const { createFriendsModule } = require('../modules/friends/friends');
-const { createMessagingModule, createGroupMessagingModule } = require('../modules/messaging/messaging');
-const { createNotesModule } = require('../modules/notes/notes');
-const { createPostsModule } = require('../modules/posts/posts');
+const { checkEthers } = require("../utils/utils");
+const {
+  getEnsName,
+  getSigner,
+  getProvider,
+  setStandaloneConfig,
+} = require("../blockchain/ethereum");
+const { shine } = require("../blockchain/shine");
+const { str2ab } = require("../modules/authentication/register");
+const {
+  createAuthenticationModule,
+} = require("../modules/authentication/authentication");
+const {
+  createCertificatesModule,
+} = require("../modules/certificates/certificates");
+const { createFriendsModule } = require("../modules/friends/friends");
+const {
+  createMessagingModule,
+  createGroupMessagingModule,
+} = require("../modules/messaging/messaging");
+const { createNotesModule } = require("../modules/notes/notes");
+const { createPostsModule } = require("../modules/posts/posts");
 
 const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
   console.log("Inizializzazione del plugin Gun-Eth");
@@ -22,7 +34,7 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
   Gun.chain.shine = shine(Gun, ethers, getSigner, getProvider);
   Gun.chain.str2ab = str2ab;
 
-  Gun.chain.GunEth = function() {
+  Gun.chain.GunEth = function () {
     console.log("gunEth called");
     const gun = this;
     console.log("gun in gunEth:", gun);
@@ -44,7 +56,7 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
     }
 
     try {
-      friends = createFriendsModule(gun, gun.user(), certificates.generateAddFriendCertificate);
+      friends = createFriendsModule(gun, gun.user());
     } catch (error) {
       console.error("Error creating friends module:", error);
       friends = {};
@@ -58,7 +70,7 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
     }
 
     try {
-      if (typeof createGroupMessagingModule === 'function') {
+      if (typeof createGroupMessagingModule === "function") {
         groupMessaging = createGroupMessagingModule(gun, SEA);
       } else {
         console.error("createGroupMessagingModule is not a function");
@@ -91,10 +103,15 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
       groupMessaging,
       notes,
       posts,
-      shine: (chain, nodeId, data, callback) => Gun.chain.shine.call(gun, chain, nodeId, data, callback),
-      
+      shine: (chain, nodeId, data, callback) =>
+        Gun.chain.shine.call(gun, chain, nodeId, data, callback),
+
       setStandaloneConfig: (newRpcUrl, newPrivateKey) => {
-        console.log("setStandaloneConfig called with:", newRpcUrl, newPrivateKey);
+        console.log(
+          "setStandaloneConfig called with:",
+          newRpcUrl,
+          newPrivateKey
+        );
         setStandaloneConfig(newRpcUrl, newPrivateKey);
         console.log("Standalone configuration set");
         return gun;
@@ -124,7 +141,9 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
       createSignature: async () => {
         try {
           const signer = await getSigner();
-          const signature = await signer.signMessage("GunDB access with Ethereum");
+          const signature = await signer.signMessage(
+            "GunDB access with Ethereum"
+          );
           console.log("Signature created:", signature);
           return signature;
         } catch (error) {
@@ -136,7 +155,10 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
       createAndStoreEncryptedPair: async (address, password) => {
         try {
           const pair = await SEA.pair();
-          const encryptedPair = await SEA.encrypt(JSON.stringify(pair), password);
+          const encryptedPair = await SEA.encrypt(
+            JSON.stringify(pair),
+            password
+          );
 
           // TODO: Add spending and viewing pairs implementation
           // const encryptedSpendingPair = await SEA.encrypt(JSON.stringify(pair), password + "_spending");
@@ -156,12 +178,24 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
             pub: encryptedPair.pub,
             address: address,
             ensName: ethAccount,
-          }
+          };
 
-          await gun.get("gun-eth").get("users").get(address).put({encryptedPair});
-          await gun.get("gun-eth").get("usersData").get(encryptedPair.pub).put({data});
+          await gun
+            .get("gun-eth")
+            .get("users")
+            .get(address)
+            .put({ encryptedPair });
+          await gun
+            .get("gun-eth")
+            .get("usersData")
+            .get(encryptedPair.pub)
+            .put({ data });
 
-          await gun.get(`~${encryptedPair.pub}`).get("safe").get("enc").put({encryptedPair});
+          await gun
+            .get(`~${encryptedPair.pub}`)
+            .get("safe")
+            .get("enc")
+            .put({ encryptedPair });
 
           console.log("Encrypted pair stored for:", address);
         } catch (error) {
@@ -171,7 +205,12 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
 
       getAndDecryptPair: async (address, password) => {
         try {
-          const encryptedData = await gun.get("gun-eth").get("users").get(address).get("encryptedPair").then();
+          const encryptedData = await gun
+            .get("gun-eth")
+            .get("users")
+            .get(address)
+            .get("encryptedPair")
+            .then();
           if (!encryptedData) {
             throw new Error("No encrypted data found for this address");
           }
@@ -187,7 +226,8 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
       gunToEthAccount: (gunPrivateKey) => {
         const base64UrlToHex = (base64url) => {
           const padding = "=".repeat((4 - (base64url.length % 4)) % 4);
-          const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/") + padding;
+          const base64 =
+            base64url.replace(/-/g, "+").replace(/_/g, "/") + padding;
           const binaryString = atob(base64);
           return Array.from(binaryString, (char) =>
             char.charCodeAt(0).toString(16).padStart(2, "0")
@@ -202,7 +242,7 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
           account: wallet,
           publicKey: publicKey,
         };
-      }
+      },
     };
   };
 
@@ -212,6 +252,6 @@ const GunEth = (Gun, SEA, ethers, rxjs, DOMPurify) => {
 
 module.exports = GunEth;
 
-if (typeof window !== 'undefined' && window.gun_eth === "undefined") {
-    window.GunEth = GunEth;
+if (typeof window !== "undefined" && window.gun_eth === "undefined") {
+  window.GunEth = GunEth;
 }
